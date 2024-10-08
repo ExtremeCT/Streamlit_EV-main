@@ -36,6 +36,7 @@ wait_for_cookies()
 client = MongoClient("mongodb+srv://Extremenop:Nop24681036@cardb.ynz57.mongodb.net/?retryWrites=true&w=majority&appName=Cardb")
 db = client['cardb']
 users_collection = db['users']
+nonev_collection = db['nonev']
 fs = gridfs.GridFS(db)
 
 # Custom CSS for styling
@@ -118,6 +119,36 @@ def logout():
     cookies.save()
     st.rerun()
 
+# Function to get NON-EV image counts
+def get_nonev_counts(start_date, end_date):
+    pipeline = [
+        {
+            "$match": {
+                "timestamp": {
+                    "$gte": start_date.isoformat(),
+                    "$lte": end_date.isoformat()
+                }
+            }
+        },
+        {
+            "$group": {
+                "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": {"$toDate": "$timestamp"}}},
+                "count": {"$sum": 1}
+            }
+        },
+        {
+            "$sort": {"_id": 1}
+        }
+    ]
+    result = list(nonev_collection.aggregate(pipeline))
+    df = pd.DataFrame(result)
+    if not df.empty:
+        df.columns = ['date', 'value']
+        df['date'] = pd.to_datetime(df['date'])
+    else:
+        df = pd.DataFrame(columns=['date', 'value'])
+    return df
+
 # Check login status from cookies
 if not st.session_state.logged_in:
     if cookies.get('logged_in', False) and cookies.get('username'):
@@ -148,10 +179,7 @@ if st.session_state.logged_in:
         st.title("Latest NON-EV Images")
         
         # Fetch all NON-EV image metadata from the database
-        non_ev_collection = db['nonev']
-        
-        # Fetch all images
-        all_images = list(non_ev_collection.find().sort('timestamp', -1))
+        all_images = list(nonev_collection.find().sort('timestamp', -1))
         
         # Create a DataFrame for the table
         df = pd.DataFrame(all_images)
@@ -170,7 +198,7 @@ if st.session_state.logged_in:
         if selected_image_id:
             try:
                 # Find the corresponding document in the collection using _id
-                image_doc = non_ev_collection.find_one({'_id': ObjectId(selected_image_id)})
+                image_doc = nonev_collection.find_one({'_id': ObjectId(selected_image_id)})
                 if image_doc:
                     # Use the file_id from the document to retrieve the image
                     file_id = image_doc['file_id']
@@ -228,27 +256,19 @@ if st.session_state.logged_in:
             st.info("Detection rate increased")
             st.info("Weekly report available")
 
-        # Function to generate random data
-        def generate_data(start_date, end_date):
-            date_range = pd.date_range(start=start_date, end=end_date)
-            return pd.DataFrame({
-                'date': date_range,
-                'value': np.random.randint(50, 150, size=len(date_range))
-            })
-
-        # Generate data based on selected date range
-        df = generate_data(start_date, end_date)
+        # Get NON-EV image count data
+        df = get_nonev_counts(start_date, end_date)
 
         # Display metrics
         col1, col2 = st.columns(2)
         with col1:
-            st.metric("Total Detections", f"{df['value'].sum():,}")
+            st.metric("Total NON-EV Detections", f"{df['value'].sum():,}")
         with col2:
-            st.metric("Average Daily Detections", f"{df['value'].mean():.2f}")
+            st.metric("Average Daily NON-EV Detections", f"{df['value'].mean():.2f}")
 
-        # EV Detections Trend
-        st.subheader("EV Detections Trend")
-        fig_trend = px.line(df, x='date', y='value', title='EV Detections Over Time')
+        # NON-EV Detections Trend
+        st.subheader("NON-EV Detections Trend")
+        fig_trend = px.line(df, x='date', y='value', title='NON-EV Detections Over Time')
         fig_trend.update_traces(line_color="#4ade80")
         st.plotly_chart(fig_trend, use_container_width=True)
 
@@ -256,22 +276,27 @@ if st.session_state.logged_in:
         if (end_date - start_date).days >= 30:
             st.subheader("Monthly Comparison")
             df_monthly = df.set_index('date').resample('M').sum().reset_index()
-            fig_bar = px.bar(df_monthly, x='date', y='value', title='Monthly EV Detections')
+            fig_bar = px.bar(df_monthly, x='date', y='value', title='Monthly NON-EV Detections')
             fig_bar.update_traces(marker_color="#4ade80")
             st.plotly_chart(fig_bar, use_container_width=True)
 
-        # Top EV Models (placeholder data)
-        st.subheader("Top EV Models")
-        top_models = pd.DataFrame({
-            'model': ['Tesla Model 3', 'Nissan Leaf', 'Chevrolet Bolt', 'BMW i3'],
-            'detections': np.random.randint(100, 1000, size=4)
-        })
-        fig_pie = px.pie(top_models, values='detections', names='model', title='Top EV Models Detected')
-        st.plotly_chart(fig_pie, use_column_width=True)
+        # Top NON-EV Events (using actual data)
+        st.subheader("Top NON-EV Events")
+        top_events = nonev_collection.aggregate([
+            {"$group": {"_id": "$event", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 5}
+        ])
+        top_events_df = pd.DataFrame(list(top_events))
+        if not top_events_df.empty:
+            fig_pie = px.pie(top_events_df, values='count', names='_id', title='Top NON-EV Events Detected')
+            st.plotly_chart(fig_pie, use_column_width=True)
+        else:
+            st.write("No NON-EV events data available.")
 
 else:
     # Login or registration forms
-    st.title("Login to EV Detection System")
+    st.title("EV Detection System")
 
     menu = ["Login", "Register"]
     choice = st.selectbox("Login or Register", menu)
