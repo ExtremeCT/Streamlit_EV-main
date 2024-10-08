@@ -3,6 +3,10 @@ from pymongo import MongoClient
 import bcrypt
 import secrets
 import logging
+import gridfs
+from bson import ObjectId
+from PIL import Image
+from io import BytesIO
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -15,6 +19,8 @@ st.set_page_config(page_title="EV Detection System Admin", layout="wide")
 client = MongoClient("mongodb+srv://Extremenop:Nop24681036@cardb.ynz57.mongodb.net/?retryWrites=true&w=majority&appName=Cardb")
 db = client['cardb']
 users_collection = db['users']
+nonev_collection = db['nonev']
+fs = gridfs.GridFS(db)
 
 # Log debug information
 logger.info(f"Connected to database: {db.name}")
@@ -103,13 +109,43 @@ def delete_user(username):
         logger.error(f"Error deleting user: {str(e)}")
         return False
 
+# Function to get all image files
+def get_all_images():
+    try:
+        all_images = list(nonev_collection.find())
+        logger.info(f"Found {len(all_images)} images")
+        return all_images
+    except Exception as e:
+        logger.error(f"Error fetching images: {str(e)}")
+        return []
+
+# Function to delete image file
+def delete_image(file_id):
+    try:
+        # Delete the file from GridFS
+        fs.delete(ObjectId(file_id))
+        # Delete the metadata from nonev collection
+        result = nonev_collection.delete_one({"file_id": file_id})
+        return result.deleted_count > 0
+    except Exception as e:
+        logger.error(f"Error deleting image: {str(e)}")
+        return False
+
+# Function to get image data
+def get_image_data(file_id):
+    try:
+        return fs.get(ObjectId(file_id)).read()
+    except Exception as e:
+        logger.error(f"Error retrieving image data: {str(e)}")
+        return None
+
 # Main App
 if 'admin_logged_in' not in st.session_state:
     st.session_state.admin_logged_in = False
 
 if st.session_state.admin_logged_in:
     # Admin Dashboard
-    st.title("EV Detection System Admin Dashboard")
+    st.title("EV Detection System Admin Management")
     st.write(f"Welcome, Admin {st.session_state.admin_username}!")
 
     # User Management Section
@@ -136,6 +172,41 @@ if st.session_state.admin_logged_in:
                 st.error("Failed to delete user. Please try again.")
     else:
         st.info("No users found in the system.")
+
+    # Image Management Section
+    st.header("Image Management")
+
+    # Get all images
+    images = get_all_images()
+
+    # Display images in a table
+    if images:
+        image_data = [{"File ID": image.get("file_id", "N/A"), 
+                       "Timestamp": image.get("timestamp", "N/A"),
+                       "Event": image.get("event", "N/A")} for image in images]
+        st.table(image_data)
+
+        # Image deletion
+        st.subheader("Delete Image")
+        file_id_to_delete = st.selectbox("Select image to delete", 
+                                         [image["file_id"] for image in images])
+        
+        # Display selected image
+        if st.button("Show Selected Image"):
+            image_data = get_image_data(file_id_to_delete)
+            if image_data:
+                st.image(Image.open(BytesIO(image_data)), caption=f"Image ID: {file_id_to_delete}", use_column_width=True)
+            else:
+                st.error("Failed to load image. The file might be corrupted or missing.")
+
+        if st.button("Delete Selected Image"):
+            if delete_image(file_id_to_delete):
+                st.success(f"Image with File ID {file_id_to_delete} has been deleted.")
+                st.rerun()
+            else:
+                st.error("Failed to delete image. Please try again.")
+    else:
+        st.info("No images found in the system.")
 
     if st.button("Logout"):
         st.session_state.admin_logged_in = False
