@@ -18,7 +18,7 @@ client = MongoClient("mongodb+srv://Extremenop:Nop24681036@cardb.ynz57.mongodb.n
 db = client['cardb']
 users_collection = db['users']
 
-# Custom CSS for styling (unchanged)
+# Custom CSS for styling
 st.markdown("""<style>
     [data-testid="stSidebar"] {
         background-color: #4ade80;
@@ -58,6 +58,10 @@ if 'email' not in st.session_state:
     st.session_state.email = None
 if 'registration_step' not in st.session_state:
     st.session_state.registration_step = 'initial'
+if 'temp_username' not in st.session_state:
+    st.session_state.temp_username = None
+if 'temp_password' not in st.session_state:
+    st.session_state.temp_password = None
 
 # Hashing password
 def hash_password(password):
@@ -135,7 +139,7 @@ def verify_otp_and_register(username, email, password, provided_otp):
 
 # Main application logic
 if st.session_state.logged_in:
-    # Main content of the dashboard (unchanged)
+    # Main content of the dashboard
     st.title("EV Detection Dashboard")
     # ... [Keep the existing dashboard code here] ...
 
@@ -183,8 +187,8 @@ else:
             otp_input = st.text_input("Enter OTP", placeholder="Enter the OTP sent to your email")
             if st.button("Verify OTP"):
                 if verify_otp_and_register(st.session_state.temp_username, st.session_state.email, st.session_state.temp_password, otp_input):
-                    del st.session_state.temp_username
-                    del st.session_state.temp_password
+                    st.session_state.temp_username = None
+                    st.session_state.temp_password = None
 
 st.markdown("---")
 st.write("For support, please contact the system administrator.")
