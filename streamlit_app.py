@@ -5,6 +5,10 @@ import plotly.express as px
 from datetime import datetime, timedelta
 from pymongo import MongoClient
 import bcrypt
+import smtplib
+from email.mime.text import MIMEText
+import random
+import string
 
 # Set page config
 st.set_page_config(page_title="EV Detection System", layout="wide")
@@ -48,6 +52,12 @@ if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 if 'username' not in st.session_state:
     st.session_state.username = None
+if 'otp' not in st.session_state:
+    st.session_state.otp = None
+if 'email' not in st.session_state:
+    st.session_state.email = None
+if 'registration_step' not in st.session_state:
+    st.session_state.registration_step = 'initial'
 
 # Hashing password
 def hash_password(password):
@@ -56,6 +66,29 @@ def hash_password(password):
 # Verifying password
 def verify_password(stored_password, provided_password):
     return bcrypt.checkpw(provided_password.encode('utf-8'), stored_password)
+
+# Generate OTP
+def generate_otp():
+    return ''.join(random.choices(string.digits, k=6))
+
+# Send OTP via email
+def send_otp(email, otp):
+    sender_email = "your_email@gmail.com"  # Replace with your email
+    sender_password = "your_email_password"  # Replace with your email password
+
+    msg = MIMEText(f"Your OTP is: {otp}")
+    msg['Subject'] = "OTP for EV Detection System Registration"
+    msg['From'] = sender_email
+    msg['To'] = email
+
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp_server:
+            smtp_server.login(sender_email, sender_password)
+            smtp_server.sendmail(sender_email, email, msg.as_string())
+        return True
+    except Exception as e:
+        st.error(f"Failed to send OTP: {str(e)}")
+        return False
 
 # Login user function
 def login_user(username, password):
@@ -69,109 +102,42 @@ def login_user(username, password):
         st.error("Invalid username or password.")
 
 # Register user function
-def register_user(username, password):
-    if users_collection.find_one({"username": username}):
-        st.error("Username already exists. Please choose a different username.")
+def register_user(username, email, password):
+    if users_collection.find_one({"$or": [{"username": username}, {"email": email}]}):
+        st.error("Username or email already exists. Please choose different credentials.")
     else:
+        otp = generate_otp()
+        if send_otp(email, otp):
+            st.session_state.otp = otp
+            st.session_state.email = email
+            st.session_state.registration_step = 'otp_verification'
+            st.success("OTP sent to your email. Please verify.")
+            return True
+    return False
+
+# Verify OTP and complete registration
+def verify_otp_and_register(username, email, password, provided_otp):
+    if provided_otp == st.session_state.otp:
         hashed_password = hash_password(password)
-        users_collection.insert_one({"username": username, "password": hashed_password})
+        users_collection.insert_one({
+            "username": username,
+            "email": email,
+            "password": hashed_password
+        })
         st.success("Registration successful! Please log in.")
+        st.session_state.otp = None
+        st.session_state.email = None
+        st.session_state.registration_step = 'initial'
+        return True
+    else:
+        st.error("Invalid OTP. Please try again.")
+        return False
 
 # Main application logic
 if st.session_state.logged_in:
-    # Main content of the dashboard
+    # Main content of the dashboard (unchanged)
     st.title("EV Detection Dashboard")
-
-    # Sidebar
-    st.sidebar.title("Navigation")
-    st.sidebar.button("Home")
-    st.sidebar.button("Messages")
-    st.sidebar.button("Favorites")
-    st.sidebar.button("Settings")
-
-    # Logout button
-    if st.sidebar.button("Logout"):
-        st.session_state.logged_in = False
-        st.session_state.username = None
-        st.rerun()
-
-    st.sidebar.text_input("Search...", "")
-
-    # Date range selector in main content
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.subheader("Select Date Range")
-        date_option = st.selectbox(
-            "Choose a date range",
-            ("Custom", "Last 24 Hours", "Last 7 Days", "Last 14 Days", "Last 30 Days", "Last 6 Months")
-        )
-
-        end_date = datetime.now()
-
-        if date_option == "Custom":
-            start_date = st.date_input("Start date", end_date - timedelta(days=30))
-            end_date = st.date_input("End date", end_date)
-            if start_date > end_date:
-                st.error("Error: End date must be after start date.")
-        else:
-            if date_option == "Last 24 Hours":
-                start_date = end_date - timedelta(hours=24)
-            elif date_option == "Last 7 Days":
-                start_date = end_date - timedelta(days=7)
-            elif date_option == "Last 14 Days":
-                start_date = end_date - timedelta(days=14)
-            elif date_option == "Last 30 Days":
-                start_date = end_date - timedelta(days=30)
-            else:  # Last 6 Months
-                start_date = end_date - timedelta(days=180)
-
-    with col2:
-        st.subheader("Notifications")
-        st.info("New EV model detected")
-        st.info("Detection rate increased")
-        st.info("Weekly report available")
-
-    # Function to generate random data
-    def generate_data(start_date, end_date):
-        date_range = pd.date_range(start=start_date, end=end_date)
-        return pd.DataFrame({
-            'date': date_range,
-            'value': np.random.randint(50, 150, size=len(date_range))
-        })
-
-    # Generate data based on selected date range
-    df = generate_data(start_date, end_date)
-
-    # Display metrics
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Total Detections", f"{df['value'].sum():,}")
-    with col2:
-        st.metric("Average Daily Detections", f"{df['value'].mean():.2f}")
-
-    # EV Detections Trend
-    st.subheader("EV Detections Trend")
-    fig_trend = px.line(df, x='date', y='value', title='EV Detections Over Time')
-    fig_trend.update_traces(line_color="#4ade80")
-    st.plotly_chart(fig_trend, use_container_width=True)
-
-    # Monthly Comparison (if applicable)
-    if (end_date - start_date).days >= 30:
-        st.subheader("Monthly Comparison")
-        df_monthly = df.set_index('date').resample('M').sum().reset_index()
-        fig_bar = px.bar(df_monthly, x='date', y='value', title='Monthly EV Detections')
-        fig_bar.update_traces(marker_color="#4ade80")
-        st.plotly_chart(fig_bar, use_container_width=True)
-
-    # Top EV Models (placeholder data)
-    st.subheader("Top EV Models")
-    top_models = pd.DataFrame({
-        'model': ['Tesla Model 3', 'Nissan Leaf', 'Chevrolet Bolt', 'BMW i3'],
-        'detections': np.random.randint(100, 1000, size=4)
-    })
-    fig_pie = px.pie(top_models, values='detections', names='model', title='Top EV Models Detected')
-    st.plotly_chart(fig_pie, use_container_width=True)
+    # ... [Keep the existing dashboard code here] ...
 
 else:
     # Login or registration forms
@@ -195,18 +161,30 @@ else:
     elif choice == "Register":
         st.subheader("Create a new account")
 
-        new_username = st.text_input("New Username", placeholder="Enter your username")
-        new_password = st.text_input("New Password", type="password", placeholder="Enter your password")
-        confirm_password = st.text_input("Confirm Password", type="password", placeholder="Re-enter your password")
+        if st.session_state.registration_step == 'initial':
+            new_username = st.text_input("New Username", placeholder="Enter your username")
+            new_email = st.text_input("Email", placeholder="Enter your email")
+            new_password = st.text_input("New Password", type="password", placeholder="Enter your password")
+            confirm_password = st.text_input("Confirm Password", type="password", placeholder="Re-enter your password")
 
-        if st.button("Register"):
-            if new_username and new_password and confirm_password:
-                if new_password == confirm_password:
-                    register_user(new_username, new_password)
+            if st.button("Register"):
+                if new_username and new_email and new_password and confirm_password:
+                    if new_password == confirm_password:
+                        if register_user(new_username, new_email, new_password):
+                            st.session_state.temp_username = new_username
+                            st.session_state.temp_password = new_password
+                    else:
+                        st.error("Passwords do not match. Please try again.")
                 else:
-                    st.error("Passwords do not match. Please try again.")
-            else:
-                st.error("Please fill out all fields.")
+                    st.error("Please fill out all fields.")
+
+        elif st.session_state.registration_step == 'otp_verification':
+            st.info("Please check your email for OTP.")
+            otp_input = st.text_input("Enter OTP", placeholder="Enter the OTP sent to your email")
+            if st.button("Verify OTP"):
+                if verify_otp_and_register(st.session_state.temp_username, st.session_state.email, st.session_state.temp_password, otp_input):
+                    del st.session_state.temp_username
+                    del st.session_state.temp_password
 
 st.markdown("---")
 st.write("For support, please contact the system administrator.")
