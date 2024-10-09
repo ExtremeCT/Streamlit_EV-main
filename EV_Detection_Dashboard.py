@@ -75,10 +75,37 @@ st.markdown("""
         font-weight: 600 !important;
     }
 
-    /* Button styles */
+    /* General button styles */
     .stButton > button {
-        color: #ffffff;
-        background-color: #ffffff;
+        color: #000000;
+        background-color: #0fff54;
+        border: none;
+        border-radius: 5px;
+        padding: 0.5rem 1rem;
+        font-weight: bold;
+        transition: all 0.3s;
+        width: 100%;
+        text-align: left;
+        display: flex;
+        align-items: center;
+        margin-top: 23px;
+    }
+        .stTextInput > div > div > input {
+        height: 48px;
+    }
+
+    .stButton > button:hover {
+        background-color: #19f4e0;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .stButton > button > svg {
+        margin-right: 0.5rem;
+    }
+
+    /* Logout button specific styles */
+    .stButton > button[data-testid="logout"] {
+        color: #000000;
+        background-color: #0fff54;
         border: none;
         border-radius: 5px;
         padding: 0.5rem 1rem;
@@ -89,35 +116,24 @@ st.markdown("""
         display: flex;
         align-items: center;
     }
-    .stButton > button:hover {
+
+    .stButton > button[data-testid="logout"]:hover {
         background-color: #ff1e1e;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    .stButton > button > svg {
-        margin-right: 0.5rem;
-    }
-    .stButton > button[data-testid="logout-button"] {
-        background-color: #4CAF50 !important;  /* Green background */
-        color: white !important;
-        border: none !important;
-        padding: 10px 20px !important;
-        text-align: center !important;
-        text-decoration: none !important;
-        display: inline-block !important;
-        font-size: 16px !important;
-        margin: 4px 2px !important;
-        cursor: pointer !important;
-        border-radius: 4px !important;
-        transition: background-color 0.3s !important;
-    }
-
-    .stButton > button[data-testid="logout-button"]:hover {
-        background-color: #45a049 !important;  /* Darker green on hover */
     }
 </style>
 <div class="decoration-top"></div>
 <div class="decoration-bottom"></div>
 """, unsafe_allow_html=True)
+
+# Check the current theme
+is_dark_theme = st.config.get_option("theme.base") == "dark"
+
+# Apply conditional styling
+if is_dark_theme:
+    text_color = "white"
+else:
+    text_color = "black"
 
 # Initialize cookie manager
 cookies = CookieManager()
@@ -327,7 +343,7 @@ if st.session_state.logged_in:
         )
         st.session_state.current_page = selected.lower()
 
-        if st.button("Logout", key="logout"):
+        if st.button("Logout", key="logout", help="Click to log out", on_click=None, args=None, kwargs=None, disabled=False, use_container_width=True):
             logout()
 
     # Page content
