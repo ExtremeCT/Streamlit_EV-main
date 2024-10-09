@@ -78,7 +78,7 @@ st.markdown("""
     /* Button styles */
     .stButton > button {
         color: #ffffff;
-        background-color: #4CAF50;
+        background-color: #ffffff;
         border: none;
         border-radius: 5px;
         padding: 0.5rem 1rem;
@@ -90,27 +90,29 @@ st.markdown("""
         align-items: center;
     }
     .stButton > button:hover {
-        background-color: #45a049;
+        background-color: #ff1e1e;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
     .stButton > button > svg {
         margin-right: 0.5rem;
     }
-
-    #logout-button {
-        background-color: #ff0000 !important;
+    .stButton > button[data-testid="logout-button"] {
+        background-color: #4CAF50 !important;  /* Green background */
         color: white !important;
         border: none !important;
-        border-radius: 5px !important;
-        padding: 0.5rem 1rem !important;
-        font-weight: bold !important;
-        transition: all 0.3s !important;
-        width: 100% !important;
+        padding: 10px 20px !important;
         text-align: center !important;
+        text-decoration: none !important;
+        display: inline-block !important;
+        font-size: 16px !important;
+        margin: 4px 2px !important;
+        cursor: pointer !important;
+        border-radius: 4px !important;
+        transition: background-color 0.3s !important;
     }
-    #logout-button:hover {
-        background-color: #cc0000 !important;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+
+    .stButton > button[data-testid="logout-button"]:hover {
+        background-color: #45a049 !important;  /* Darker green on hover */
     }
 </style>
 <div class="decoration-top"></div>
@@ -266,7 +268,7 @@ def verify_otp_and_reset_password(email, entered_otp, new_password):
     else:
         st.error("Invalid OTP. Please try again.")
         return False
-    
+
 # Logout function
 def logout():
     st.session_state.logged_in = False
@@ -325,18 +327,8 @@ if st.session_state.logged_in:
         )
         st.session_state.current_page = selected.lower()
 
-        # Use a container to apply the custom class to the logout button
-        with st.container():
-            st.markdown(
-                """
-                <style>
-                div[data-testid="stHorizontalBlock"] > div:first-child {width:100% !important;}
-                </style>
-                """, 
-                unsafe_allow_html=True
-            )
-            if st.button("🚪 Logout", key="logout", use_container_width=True, help="Click to log out"):
-                logout()
+        if st.button("Logout", key="logout"):
+            logout()
 
     # Page content
     if st.session_state.current_page == "non-ev detected":
@@ -381,6 +373,7 @@ if st.session_state.logged_in:
                 st.error(f"No file found with ID: {selected_image_id}. Please check the ID and try again.")
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
+
     elif st.session_state.current_page == "dashboard":
         st.title("📊 EV Detection Dashboard")
         
