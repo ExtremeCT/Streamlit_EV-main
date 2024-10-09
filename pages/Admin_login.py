@@ -3,18 +3,24 @@ from pymongo import MongoClient
 import bcrypt
 import secrets
 import logging
+import gridfs
+from bson import ObjectId
+from PIL import Image
+from io import BytesIO
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Set page config
-st.set_page_config(page_title="EV Detection System Admin", layout="wide")
+st.set_page_config(page_title="EV Detection System Admin", layout="wide", page_icon="🚗")
 
 # Connect to MongoDB (adjust connection string as needed)
 client = MongoClient("mongodb+srv://Extremenop:Nop24681036@cardb.ynz57.mongodb.net/?retryWrites=true&w=majority&appName=Cardb")
 db = client['cardb']
 users_collection = db['users']
+nonev_collection = db['nonev']
+fs = gridfs.GridFS(db)
 
 # Log debug information
 logger.info(f"Connected to database: {db.name}")
@@ -23,19 +29,115 @@ logger.info(f"Collections in database: {db.list_collection_names()}")
 # Custom CSS for styling
 st.markdown("""
 <style>
-    .stTextInput>div>div>input {
-        border: 1px solid black;
+    /* Main page styles */
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
     }
-    .stTextInput>div>div>input::placeholder {
+
+    body {
+        color: #333;
+        background-color: #f0f8ff;
+    }
+
+    h1, h2, h3 {
+        color: #2e7d32;
+    }
+
+    /* Sidebar styles */
+    [data-testid="stSidebar"] {
+        background-color: #4ade80;
+        padding-top: 2rem;
+    }
+    [data-testid="stSidebar"] .sidebar-content {
+        background-color: #4ade80;
+    }
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
+        color: black;
+        font-size: 1.2rem;
+        font-weight: 600;
+        padding: 0.5rem 0;
+        margin-left: 0.5rem;
+    }
+    
+    /* Main Menu styles */
+    [data-testid="stSidebar"] .st-bk {
+        background-color: transparent !important;
+    }
+    [data-testid="stSidebar"] .st-co {
+        background-color: rgba(0, 0, 0, 0.1) !important;
+    }
+    [data-testid="stSidebar"] .st-cu {
+        border-radius: 0 !important;
+    }
+    [data-testid="stSidebar"] .st-cx {
+        padding: 0.5rem 0.25rem !important;
+    }
+    [data-testid="stSidebar"] .st-cy {
+        padding-left: 0.5rem !important;
+    }
+    [data-testid="stSidebar"] .st-dk {
+        font-weight: 600 !important;
+    }
+
+    /* Button styles */
+    .stButton > button {
+        color: #ffffff;
+        background-color: #4CAF50;
+        border: none;
+        border-radius: 5px;
+        padding: 0.5rem 1rem;
+        font-weight: bold;
+        transition: all 0.3s;
+        width: 100%;
+        text-align: left;
+        display: flex;
+        align-items: center;
+    }
+    .stButton > button:hover {
+        background-color: #21feea;
+        color: black;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .stButton > button > svg {
+        margin-right: 0.5rem;
+    }
+
+    .logout-button {
+        background-color: #ff4b4b;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 0.3rem;
+        border: none;
+        cursor: pointer;
+        font-weight: bold;
+        transition: background-color 0.3s ease;
+    }
+    .logout-button:hover {
+        background-color: #ff3333;
+    }
+
+    /* Input styles */
+    .stTextInput > div > div > input {
+        border: 1px solid #4CAF50;
+        color: #333;
+        background-color: white;
+    }
+    .stTextInput > div > div > input::placeholder {
         color: rgba(0,0,0,0.6);
     }
-    .login-link {
-        color: blue;
-        text-decoration: underline;
-        cursor: pointer;
+
+    /* Table styles */
+    .dataframe {
+        font-size: 0.9rem;
     }
-    .stButton>button {
-        width: 100%;
+    .dataframe th {
+        background-color: #4ade80;
+        color: black;
+    }
+    .dataframe td {
+        background-color: white;
+        color: #333;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -103,57 +205,132 @@ def delete_user(username):
         logger.error(f"Error deleting user: {str(e)}")
         return False
 
+# Function to get all image files
+def get_all_images():
+    try:
+        all_images = list(nonev_collection.find())
+        logger.info(f"Found {len(all_images)} images")
+        return all_images
+    except Exception as e:
+        logger.error(f"Error fetching images: {str(e)}")
+        return []
+
+# Function to delete image file
+def delete_image(file_id):
+    try:
+        # Delete the file from GridFS
+        fs.delete(ObjectId(file_id))
+        # Delete the metadata from nonev collection
+        result = nonev_collection.delete_one({"file_id": file_id})
+        return result.deleted_count > 0
+    except Exception as e:
+        logger.error(f"Error deleting image: {str(e)}")
+        return False
+
+# Function to get image data
+def get_image_data(file_id):
+    try:
+        return fs.get(ObjectId(file_id)).read()
+    except Exception as e:
+        logger.error(f"Error retrieving image data: {str(e)}")
+        return None
+
 # Main App
 if 'admin_logged_in' not in st.session_state:
     st.session_state.admin_logged_in = False
 
 if st.session_state.admin_logged_in:
     # Admin Dashboard
-    st.title("EV Detection System Admin Dashboard")
+    st.title("🚗 EV Detection System Admin Dashboard")
     st.write(f"Welcome, Admin {st.session_state.admin_username}!")
 
-    # User Management Section
-    st.header("User Management")
+    # Sidebar
+    with st.sidebar:
+        st.title("🚗 EV Detection Admin")
+        selected = st.radio(
+            "Main Menu",
+            ["User Management", "Image Management"],
+            format_func=lambda x: f"{'👥' if x == 'User Management' else '🖼️'} {x}"
+        )
 
-    # Get all users
-    users = get_all_users()
+        if st.sidebar.button("Logout", key="logout_button", help="Click to log out"):
+            st.session_state.admin_logged_in = False
+            st.session_state.admin_username = None
+            st.rerun()
 
-    # Display users in a table
-    if users:
-        user_data = [{"Username": user.get("username", "N/A"), 
-                      "User Type": user.get("user_type", "N/A")} for user in users]
-        st.table(user_data)
+    if selected == "User Management":
+        st.header("👥 User Management")
 
-        # User deletion
-        st.subheader("Delete User")
-        username_to_delete = st.selectbox("Select user to delete", 
-                                          [user["username"] for user in users])
-        if st.button("Delete Selected User"):
-            if delete_user(username_to_delete):
-                st.success(f"User {username_to_delete} has been deleted.")
-                st.rerun()
-            else:
-                st.error("Failed to delete user. Please try again.")
-    else:
-        st.info("No users found in the system.")
+        # Get all users
+        users = get_all_users()
 
-    if st.button("Logout"):
-        st.session_state.admin_logged_in = False
-        st.session_state.admin_username = None
-        st.rerun()
+        # Display users in a table
+        if users:
+            user_data = [{"Username": user.get("username", "N/A"), 
+                          "User Type": user.get("user_type", "N/A"),
+                          "Email": user.get("email", "N/A")} for user in users]
+            st.dataframe(user_data)
+
+            # User deletion
+            st.subheader("Delete User")
+            username_to_delete = st.selectbox("Select user to delete", 
+                                              [user["username"] for user in users])
+            if st.button("Delete Selected User"):
+                if delete_user(username_to_delete):
+                    st.success(f"User {username_to_delete} has been deleted.")
+                    st.rerun()
+                else:
+                    st.error("Failed to delete user. Please try again.")
+        else:
+            st.info("No users found in the system.")
+
+    elif selected == "Image Management":
+        st.header("🖼️ Image Management")
+
+        # Get all images
+        images = get_all_images()
+
+        # Display images in a table
+        if images:
+            image_data = [{"File ID": image.get("file_id", "N/A"), 
+                           "Timestamp": image.get("timestamp", "N/A"),
+                           "Event": image.get("event", "N/A")} for image in images]
+            st.dataframe(image_data)
+
+            # Image deletion
+            st.subheader("Delete Image")
+            file_id_to_delete = st.selectbox("Select image to delete", 
+                                             [image["file_id"] for image in images])
+            
+            # Display selected image
+            if st.button("Show Selected Image"):
+                image_data = get_image_data(file_id_to_delete)
+                if image_data:
+                    st.image(Image.open(BytesIO(image_data)), caption=f"Image ID: {file_id_to_delete}", use_column_width=True)
+                else:
+                    st.error("Failed to load image. The file might be corrupted or missing.")
+
+            if st.button("Delete Selected Image"):
+                if delete_image(file_id_to_delete):
+                    st.success(f"Image with File ID {file_id_to_delete} has been deleted.")
+                    st.rerun()
+                else:
+                    st.error("Failed to delete image. Please try again.")
+        else:
+            st.info("No images found in the system.")
 
 else:
     # Admin Login and Registration
-    st.title("EV Detection System Admin Portal")
+    st.title("🚗 EV Detection System Admin Portal")
 
-    tab1, tab2 = st.tabs(["Login", "Register"])
+    tab1, tab2 = st.tabs(["🔐 Admin Login", "📝 Admin Registration"])
 
     with tab1:
         st.header("Admin Login")
         username = st.text_input("Admin Username", placeholder="Enter your admin username", key="login_username")
         password = st.text_input("Password", type="password", placeholder="Enter your password", key="login_password")
 
-        if st.button("Login"):
+        if st.button("Login", key="login_button"):
             if username and password:
                 admin_login(username, password)
             else:
@@ -166,7 +343,7 @@ else:
         confirm_password = st.text_input("Confirm Password", type="password", placeholder="Confirm new password")
         registration_key = st.text_input("Registration Key", type="password", placeholder="Enter registration key")
 
-        if st.button("Register"):
+        if st.button("Register", key="register_button"):
             if new_username and new_password and confirm_password and registration_key:
                 if new_password == confirm_password:
                     admin_register(new_username, new_password, registration_key)
@@ -177,3 +354,11 @@ else:
 
 st.markdown("---")
 st.write("For support, please contact the system administrator.")
+
+# Add some decorative elements
+st.markdown("""
+<div style="text-align: center; margin-top: 50px;">
+    <h3>🌿 Driving towards a greener future 🌿</h3>
+    <p style="font-style: italic;">Empowering sustainable transportation through advanced EV detection.</p>
+</div>
+""", unsafe_allow_html=True)

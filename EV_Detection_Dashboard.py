@@ -75,10 +75,10 @@ st.markdown("""
         font-weight: 600 !important;
     }
 
-    /* General button styles */
+    /* Button styles */
     .stButton > button {
-        color: #000000;
-        background-color: #0fff54;
+        color: #ffffff;
+        background-color: #4CAF50;
         border: none;
         border-radius: 5px;
         padding: 0.5rem 1rem;
@@ -88,38 +88,30 @@ st.markdown("""
         text-align: left;
         display: flex;
         align-items: center;
-        margin-top: 23px;
     }
-        .stTextInput > div > div > input {
-        height: 48px;
-    }
-
     .stButton > button:hover {
-        background-color: #19f4e0;
+        background-color: #21feea;
+        color: black;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
     .stButton > button > svg {
         margin-right: 0.5rem;
     }
 
-    /* Logout button specific styles */
     .logout-button {
-        background-color: #ffffff !important;
-        color: black !important;
-        border: none !important;
-        padding: 10px 20px !important;
-        text-align: center !important;
-        text-decoration: none !important;
-        display: inline-block !important;
-        font-size: 16px !important;
-        margin: 4px 2px !important;
-        cursor: pointer !important;
-        border-radius: 4px !important;
-        transition: background-color 0.3s !important;
+        background-color: #ff4b4b;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 0.3rem;
+        border: none;
+        cursor: pointer;
+        font-weight: bold;
+        transition: background-color 0.3s ease;
     }
     .logout-button:hover {
-        background-color: #fc0101 !important;
+        background-color: #ff3333;
     }
+
 </style>
 <div class="decoration-top"></div>
 <div class="decoration-bottom"></div>
@@ -131,8 +123,11 @@ is_dark_theme = st.config.get_option("theme.base") == "dark"
 # Apply conditional styling
 if is_dark_theme:
     text_color = "white"
+    font="serif"
 else:
     text_color = "black"
+    font="serif"
+
 
 # Initialize cookie manager
 cookies = CookieManager()
@@ -283,7 +278,7 @@ def verify_otp_and_reset_password(email, entered_otp, new_password):
     else:
         st.error("Invalid OTP. Please try again.")
         return False
-
+    
 # Logout function
 def logout():
     st.session_state.logged_in = False
@@ -342,21 +337,9 @@ if st.session_state.logged_in:
         )
         st.session_state.current_page = selected.lower()
 
-        st.markdown('<button class="logout-button" id="logout-button">Logout</button>', unsafe_allow_html=True)
-
-        # Add this JavaScript to handle the logout button click
-        st.markdown("""
-<script>
-    document.getElementById('logout-button').addEventListener('click', function() {
-        window.streamlitApp.setComponentValue('logout-button', true);
-    })
-</script>
-""", unsafe_allow_html=True)
-
-        # Check for logout button click
-        if st.session_state.get('logout-button'):
-            logout()
-        st.session_state['logout-button'] = False
+        # Use a container to apply the custom class to the logout button
+        if st.sidebar.button("Logout", key="logout_button", on_click=logout, help="Click to log out"):
+            st.markdown('<button class="logout-button">Logout</button>', unsafe_allow_html=True)
 
     # Page content
     if st.session_state.current_page == "non-ev detected":
@@ -401,7 +384,6 @@ if st.session_state.logged_in:
                 st.error(f"No file found with ID: {selected_image_id}. Please check the ID and try again.")
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
-
     elif st.session_state.current_page == "dashboard":
         st.title("📊 EV Detection Dashboard")
         
