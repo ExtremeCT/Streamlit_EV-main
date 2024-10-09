@@ -163,7 +163,7 @@ if st.session_state.logged_in:
         st.session_state.current_page = 'home'
     if st.sidebar.button("Messages"):
         st.session_state.current_page = 'messages'
-    if st.sidebar.button("Latest NON-EV"):
+    if st.sidebar.button("NON-EV Detected"):
         st.session_state.current_page = 'latest_non_ev'
     if st.sidebar.button("Settings"):
         st.session_state.current_page = 'settings'
@@ -176,7 +176,7 @@ if st.session_state.logged_in:
 
     # Page content
     if st.session_state.current_page == 'latest_non_ev':
-        st.title("Latest NON-EV Images")
+        st.title("NON-EV Images Detected")
         
         # Fetch all NON-EV image metadata from the database
         all_images = list(nonev_collection.find().sort('timestamp', -1))
