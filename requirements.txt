@@ -4,4 +4,4 @@ numpy
 plotly
 bcrypt
 email_validator
-pymongo
+pymongostreamlit-cookies-manager
