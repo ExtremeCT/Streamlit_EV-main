@@ -50,7 +50,7 @@ EMAIL_PORT = 587
 EMAIL_HOST_USER = 'evdetectionsystem@gmail.com'  # Replace with your email
 EMAIL_HOST_PASSWORD = 'efhu ncmo rgga dksk'  # Replace with your app password
 
-# Custom CSS for styling (unchanged)
+# Custom CSS for styling
 st.markdown("""<style>
     [data-testid="stSidebar"] {
         background-color: #4ade80;
@@ -76,6 +76,12 @@ st.markdown("""<style>
     }
     [data-testid="stSidebar"] .stTextInput>div>div>input::placeholder {
         color: rgba(0,0,0,0.7);
+    }
+    .stButton > button {
+        margin-top: 23px;
+    }
+    .stTextInput > div > div > input {
+        height: 48px;
     }
 </style>""", unsafe_allow_html=True)
 
@@ -162,7 +168,7 @@ def verify_otp_and_register(username, password, email, entered_otp):
     if entered_otp == st.session_state.otp and email == st.session_state.otp_email:
         hashed_password = hash_password(password)
         users_collection.insert_one({"username": username, "password": hashed_password, "email": email})
-        st.success("Registration successful! Please log in.")
+
         st.session_state.otp = None
         st.session_state.otp_email = None
         st.session_state.registration_step = 'initial'
@@ -210,7 +216,7 @@ def logout():
     cookies.save()
     st.rerun()
 
-# Function to get NON-EV image counts (unchanged)
+# Function to get NON-EV image counts
 def get_nonev_counts(start_date, end_date):
     pipeline = [
         {
@@ -254,7 +260,7 @@ if st.session_state.logged_in:
         st.session_state.current_page = 'home'
     if st.sidebar.button("Messages"):
         st.session_state.current_page = 'messages'
-    if st.sidebar.button("NON-EV Detected"):
+    if st.sidebar.button("Latest NON-EV"):
         st.session_state.current_page = 'latest_non_ev'
     if st.sidebar.button("Settings"):
         st.session_state.current_page = 'settings'
@@ -267,7 +273,7 @@ if st.session_state.logged_in:
 
     # Page content
     if st.session_state.current_page == 'latest_non_ev':
-        st.title("NON-EV Images Detected")
+        st.title("Latest NON-EV Images")
         
         # Fetch all NON-EV image metadata from the database
         all_images = list(nonev_collection.find().sort('timestamp', -1))
@@ -308,6 +314,82 @@ if st.session_state.logged_in:
                 st.error(f"No file found with ID: {selected_image_id}. Please check the ID and try again.")
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
+
+    else:  # Default to home/dashboard
+        st.title("EV Detection Dashboard")
+        
+        # Date range selector in main content
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.subheader("Select Date Range")
+            date_option = st.selectbox(
+                "Choose a date range",
+                ("Custom", "Last 24 Hours", "Last 7 Days", "Last 14 Days", "Last 30 Days", "Last 6 Months")
+            )
+
+            end_date = datetime.now()
+
+            if date_option == "Custom":
+                start_date = st.date_input("Start date", end_date - timedelta(days=30))
+                end_date = st.date_input("End date", end_date)
+                if start_date > end_date:
+                    st.error("Error: End date must be after start date.")
+            else:
+                if date_option == "Last 24 Hours":
+                    start_date = end_date - timedelta(hours=24)
+                elif date_option == "Last 7 Days":
+                    start_date = end_date - timedelta(days=7)
+                elif date_option == "Last 14 Days":
+                    start_date = end_date - timedelta(days=14)
+                elif date_option == "Last 30 Days":
+                    start_date = end_date - timedelta(days=30)
+                else:  # Last 6 Months
+                    start_date = end_date - timedelta(days=180)
+
+        with col2:
+            st.subheader("Notifications")
+            st.info("New EV model detected")
+            st.info("Detection rate increased")
+            st.info("Weekly report available")
+
+        # Get NON-EV image count data
+        df = get_nonev_counts(start_date, end_date)
+
+        # Display metrics
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Total NON-EV Detections", f"{df['value'].sum():,}")
+        with col2:
+            st.metric("Average Daily NON-EV Detections", f"{df['value'].mean():.2f}")
+
+        # NON-EV Detections Trend
+        st.subheader("NON-EV Detections Trend")
+        fig_trend = px.line(df, x='date', y='value', title='NON-EV Detections Over Time')
+        fig_trend.update_traces(line_color="#4ade80")
+        st.plotly_chart(fig_trend, use_container_width=True)
+
+        # Monthly Comparison (if applicable)
+        if (end_date - start_date).days >= 30:
+            st.subheader("Monthly Comparison")
+            df_monthly = df.set_index('date').resample('M').sum().reset_index()
+            fig_bar = px.bar(df_monthly, x='date', y='value', title='Monthly NON-EV Detections')
+            fig_bar.update_traces(marker_color="#4ade80")
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+        # Top NON-EV Events (using actual data)
+        st.subheader("Top NON-EV Events")
+        top_events = nonev_collection.aggregate([
+            {"$group": {"_id": "$event", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 5}
+        ])
+        top_events_df = pd.DataFrame(list(top_events))
+        if not top_events_df.empty:
+            fig_pie = px.pie(top_events_df, values='count', names='_id', title='Top NON-EV Events Detected')
+            st.plotly_chart(fig_pie, use_column_width=True)
+        else:
+            st.write("No NON-EV events data available.")
 
 else:
     # Login, registration, and password recovery forms
@@ -363,14 +445,14 @@ else:
         with col1:
             email = st.text_input("Email", key="reg_email")
         with col2:
-            send_otp = st.button("Send OTP")
+            send_otp = st.button("Send OTP", key="send_otp_button")
 
         # Use columns to place the OTP input and Resend OTP button side by side
         col3, col4 = st.columns([3, 1])
         with col3:
             otp_input = st.text_input("Enter OTP", key="reg_otp")
         with col4:
-            resend_otp = st.button("Resend OTP")
+            resend_otp = st.button("Resend OTP", key="resend_otp_button")
 
         if send_otp or resend_otp:
             if email:
