@@ -98,36 +98,25 @@ st.markdown("""
         margin-right: 0.5rem;
     }
 
-    .logout-button {
-        background-color: #ff4b4b;
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 0.3rem;
-        border: none;
-        cursor: pointer;
-        font-weight: bold;
-        transition: background-color 0.3s ease;
+    .logout {
+        background-color: #ff0000 !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 5px !important;
+        padding: 0.5rem 1rem !important;
+        font-weight: bold !important;
+        transition: all 0.3s !important;
+        width: 100% !important;
+        text-align: center !important;
     }
-    .logout-button:hover {
-        background-color: #ff3333;
+    .logout:hover {
+        background-color: #cc0000 !important;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
     }
-
 </style>
 <div class="decoration-top"></div>
 <div class="decoration-bottom"></div>
 """, unsafe_allow_html=True)
-
-# Check the current theme
-is_dark_theme = st.config.get_option("theme.base") == "dark"
-
-# Apply conditional styling
-if is_dark_theme:
-    text_color = "white"
-    font="serif"
-else:
-    text_color = "black"
-    font="serif"
-
 
 # Initialize cookie manager
 cookies = CookieManager()
@@ -337,9 +326,8 @@ if st.session_state.logged_in:
         )
         st.session_state.current_page = selected.lower()
 
-        # Use a container to apply the custom class to the logout button
-        if st.sidebar.button("Logout", key="logout_button", on_click=logout, help="Click to log out"):
-            st.markdown('<button class="logout-button">Logout</button>', unsafe_allow_html=True)
+        if st.button("🚪 Logout", key="logout", use_container_width=True, help="Click to log out"):
+                logout()
 
     # Page content
     if st.session_state.current_page == "non-ev detected":
