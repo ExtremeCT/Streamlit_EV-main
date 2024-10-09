@@ -19,7 +19,103 @@ import random
 import string
 
 # Set page config at the very beginning
-st.set_page_config(page_title="EV Detection System", layout="wide")
+st.set_page_config(page_title="EV Detection System", layout="wide", page_icon="🚗")
+
+# Custom CSS for styling
+st.markdown("""
+<style>
+    /* Main page styles */
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+
+    body {
+        color: #333;
+        background-color: #f0f8ff;
+    }
+
+    h1, h2, h3 {
+        color: #2e7d32;
+    }
+
+    /* Sidebar styles */
+    [data-testid="stSidebar"] {
+        background-color: #4ade80;
+        padding-top: 2rem;
+    }
+    [data-testid="stSidebar"] .sidebar-content {
+        background-color: #4ade80;
+    }
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
+        color: black;
+        font-size: 1.2rem;
+        font-weight: 600;
+        padding: 0.5rem 0;
+        margin-left: 0.5rem;
+    }
+    
+    /* Main Menu styles */
+    [data-testid="stSidebar"] .st-bk {
+        background-color: transparent !important;
+    }
+    [data-testid="stSidebar"] .st-co {
+        background-color: rgba(0, 0, 0, 0.1) !important;
+    }
+    [data-testid="stSidebar"] .st-cu {
+        border-radius: 0 !important;
+    }
+    [data-testid="stSidebar"] .st-cx {
+        padding: 0.5rem 0.25rem !important;
+    }
+    [data-testid="stSidebar"] .st-cy {
+        padding-left: 0.5rem !important;
+    }
+    [data-testid="stSidebar"] .st-dk {
+        font-weight: 600 !important;
+    }
+
+    /* Button styles */
+    .stButton > button {
+        color: #ffffff;
+        background-color: #4CAF50;
+        border: none;
+        border-radius: 5px;
+        padding: 0.5rem 1rem;
+        font-weight: bold;
+        transition: all 0.3s;
+        width: 100%;
+        text-align: left;
+        display: flex;
+        align-items: center;
+    }
+    .stButton > button:hover {
+        background-color: #45a049;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .stButton > button > svg {
+        margin-right: 0.5rem;
+    }
+
+    #logout-button {
+        background-color: #ff0000 !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 5px !important;
+        padding: 0.5rem 1rem !important;
+        font-weight: bold !important;
+        transition: all 0.3s !important;
+        width: 100% !important;
+        text-align: center !important;
+    }
+    #logout-button:hover {
+        background-color: #cc0000 !important;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+    }
+</style>
+<div class="decoration-top"></div>
+<div class="decoration-bottom"></div>
+""", unsafe_allow_html=True)
 
 # Initialize cookie manager
 cookies = CookieManager()
@@ -49,41 +145,6 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_HOST_USER = 'evdetectionsystem@gmail.com'  # Replace with your email
 EMAIL_HOST_PASSWORD = 'efhu ncmo rgga dksk'  # Replace with your app password
-
-# Custom CSS for styling
-st.markdown("""<style>
-    [data-testid="stSidebar"] {
-        background-color: #4ade80;
-    }
-    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p, 
-    [data-testid="stSidebar"] .css-1v3fvcr {
-        color: #0072a4;
-    }
-    [data-testid="stSidebar"] .stButton>button {
-        color: black;
-        background-color: white;
-        border: 2px solid black;
-    }
-    [data-testid="stSidebar"] .stButton>button:hover {
-        background-color: rgba(0,0,0,0.1);
-        color: black;
-        border: 2px solid black;
-    }
-    [data-testid="stSidebar"] .stTextInput>div>div>input {
-        color: black;
-        background-color: white;
-        border-color: black;
-    }
-    [data-testid="stSidebar"] .stTextInput>div>div>input::placeholder {
-        color: rgba(0,0,0,0.7);
-    }
-    .stButton > button {
-    margin-top: 23px;
-    }
-    .stTextInput > div > div > input {
-        height: 48px;
-    }
-</style>""", unsafe_allow_html=True)
 
 # Initialize session state
 if 'logged_in' not in st.session_state:
@@ -205,8 +266,7 @@ def verify_otp_and_reset_password(email, entered_otp, new_password):
     else:
         st.error("Invalid OTP. Please try again.")
         return False
-
-
+    
 # Logout function
 def logout():
     st.session_state.logged_in = False
@@ -255,26 +315,32 @@ if not st.session_state.logged_in:
 
 # Main application logic
 if st.session_state.logged_in:
-    # Sidebar
-    st.sidebar.title("Navigation")
-    if st.sidebar.button("Home"):
-        st.session_state.current_page = 'home'
-    if st.sidebar.button("Messages"):
-        st.session_state.current_page = 'messages'
-    if st.sidebar.button("NON-EV Detected"):
-        st.session_state.current_page = 'latest_non_ev'
-    if st.sidebar.button("Settings"):
-        st.session_state.current_page = 'settings'
+    # Sidebar navigation
+    with st.sidebar:
+        st.title("🚗 EV Detection")
+        selected = st.radio(
+            "Main Menu",
+            ["Dashboard", "NON-EV Detected", "Messages", "Settings"],
+            format_func=lambda x: f"{'🏠' if x == 'Dashboard' else '📷' if x == 'NON-EV Detected' else '✉️' if x == 'Messages' else '⚙️'} {x}"
+        )
+        st.session_state.current_page = selected.lower()
 
-    # Logout button
-    if st.sidebar.button("Logout"):
-        logout()
-
-    st.sidebar.text_input("Search...", "")
+        # Use a container to apply the custom class to the logout button
+        with st.container():
+            st.markdown(
+                """
+                <style>
+                div[data-testid="stHorizontalBlock"] > div:first-child {width:100% !important;}
+                </style>
+                """, 
+                unsafe_allow_html=True
+            )
+            if st.button("🚪 Logout", key="logout", use_container_width=True, help="Click to log out"):
+                logout()
 
     # Page content
-    if st.session_state.current_page == 'latest_non_ev':
-        st.title("NON-EV Images Detected")
+    if st.session_state.current_page == "non-ev detected":
+        st.title("📸 NON-EV Images Detected")
         
         # Fetch all NON-EV image metadata from the database
         all_images = list(nonev_collection.find().sort('timestamp', -1))
@@ -285,7 +351,7 @@ if st.session_state.logged_in:
         df['file_id'] = df['file_id'].astype(str)
         
         # Display the table
-        st.dataframe(df)
+        st.dataframe(df.style.set_properties(**{'background-color': 'white', 'color': 'black'}))
         
         # Display total number of images
         st.write(f"Total number of images: {len(all_images)}")
@@ -315,15 +381,14 @@ if st.session_state.logged_in:
                 st.error(f"No file found with ID: {selected_image_id}. Please check the ID and try again.")
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
-
-    else:  # Default to home/dashboard
-        st.title("EV Detection Dashboard")
+    elif st.session_state.current_page == "dashboard":
+        st.title("📊 EV Detection Dashboard")
         
         # Date range selector in main content
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            st.subheader("Select Date Range")
+            st.subheader("📅 Select Date Range")
             date_option = st.selectbox(
                 "Choose a date range",
                 ("Custom", "Last 24 Hours", "Last 7 Days", "Last 14 Days", "Last 30 Days", "Last 6 Months")
@@ -349,10 +414,10 @@ if st.session_state.logged_in:
                     start_date = end_date - timedelta(days=180)
 
         with col2:
-            st.subheader("Notifications")
-            st.info("New EV model detected")
-            st.info("Detection rate increased")
-            st.info("Weekly report available")
+            st.subheader("📢 Notifications")
+            st.info("🆕 New EV model detected")
+            st.info("📈 Detection rate increased")
+            st.info("📊 Weekly report available")
 
         # Get NON-EV image count data
         df = get_nonev_counts(start_date, end_date)
@@ -360,26 +425,36 @@ if st.session_state.logged_in:
         # Display metrics
         col1, col2 = st.columns(2)
         with col1:
-            st.metric("Total NON-EV Detections", f"{df['value'].sum():,}")
+            st.metric("Total NON-EV Detections", f"{df['value'].sum():,}", delta="5%")
         with col2:
-            st.metric("Average Daily NON-EV Detections", f"{df['value'].mean():.2f}")
+            st.metric("Average Daily NON-EV Detections", f"{df['value'].mean():.2f}", delta="-2%")
 
         # NON-EV Detections Trend
-        st.subheader("NON-EV Detections Trend")
+        st.subheader("📉 NON-EV Detections Trend")
         fig_trend = px.line(df, x='date', y='value', title='NON-EV Detections Over Time')
         fig_trend.update_traces(line_color="#4ade80")
+        fig_trend.update_layout(
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font_color='#1e3a8a'
+        )
         st.plotly_chart(fig_trend, use_container_width=True)
 
         # Monthly Comparison (if applicable)
         if (end_date - start_date).days >= 30:
-            st.subheader("Monthly Comparison")
+            st.subheader("📊 Monthly Comparison")
             df_monthly = df.set_index('date').resample('M').sum().reset_index()
             fig_bar = px.bar(df_monthly, x='date', y='value', title='Monthly NON-EV Detections')
             fig_bar.update_traces(marker_color="#4ade80")
+            fig_bar.update_layout(
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font_color='#1e3a8a'
+            )
             st.plotly_chart(fig_bar, use_container_width=True)
 
         # Top NON-EV Events (using actual data)
-        st.subheader("Top NON-EV Events")
+        st.subheader("🏆 Top NON-EV Events")
         top_events = nonev_collection.aggregate([
             {"$group": {"_id": "$event", "count": {"$sum": 1}}},
             {"$sort": {"count": -1}},
@@ -388,15 +463,62 @@ if st.session_state.logged_in:
         top_events_df = pd.DataFrame(list(top_events))
         if not top_events_df.empty:
             fig_pie = px.pie(top_events_df, values='count', names='_id', title='Top NON-EV Events Detected')
-            st.plotly_chart(fig_pie, use_column_width=True)
+            fig_pie.update_layout(
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font_color='#1e3a8a'
+            )
+            st.plotly_chart(fig_pie, use_container_width=True)
         else:
             st.write("No NON-EV events data available.")
 
-else:
-    # Login, registration, and password recovery forms
-    st.title("EV Detection System")
+    elif st.session_state.current_page == "messages":
+        st.title("📫 Messages")
+        st.write("This feature is coming soon. Stay tuned for updates!")
+        
+        # Placeholder for future message functionality
+        st.info("Here you'll be able to view and manage system notifications and user messages.")
 
-    tab1, tab2 = st.tabs(["Login", "Register"])
+    elif st.session_state.current_page == "settings":
+        st.title("⚙️ Settings")
+        st.subheader("User Profile")
+        st.write(f"Username: {st.session_state.username}")
+        
+        # Change password form
+        st.subheader("Change Password")
+        current_password = st.text_input("Current Password", type="password")
+        new_password = st.text_input("New Password", type="password")
+        confirm_new_password = st.text_input("Confirm New Password", type="password")
+        
+        if st.button("Change Password"):
+            user = users_collection.find_one({"username": st.session_state.username})
+            if user and verify_password(user['password'], current_password):
+                if new_password == confirm_new_password:
+                    hashed_password = hash_password(new_password)
+                    users_collection.update_one(
+                        {"username": st.session_state.username},
+                        {"$set": {"password": hashed_password}}
+                    )
+                    st.success("Password changed successfully!")
+                else:
+                    st.error("New passwords do not match.")
+            else:
+                st.error("Current password is incorrect.")
+
+        # Notification settings
+        st.subheader("Notification Settings")
+        email_notifications = st.checkbox("Receive email notifications", value=True)
+        push_notifications = st.checkbox("Receive push notifications", value=True)
+        
+        if st.button("Save Notification Settings"):
+            # Here you would typically save these settings to the user's profile in the database
+            st.success("Notification settings saved!")
+
+else:
+    # Login and registration forms
+    st.title("🚗 EV Detection System")
+
+    tab1, tab2 = st.tabs(["🔐 Login", "📝 Register"])
 
     with tab1:
         st.subheader("Login to your account")
@@ -406,18 +528,18 @@ else:
 
         col1, col2 = st.columns([1, 1])
         with col1:
-            if st.button("Login"):
+            if st.button("Login", key="login_button"):
                 if username and password:
                     login_user(username, password)
                 else:
                     st.error("Please enter both username and password.")
         with col2:
-            if st.button("Forgot Password"):
+            if st.button("Forgot Password", key="forgot_password_button"):
                 st.session_state.forgot_password_step = 'enter_email'
 
         if st.session_state.get('forgot_password_step') == 'enter_email':
             email = st.text_input("Enter your email", key="forgot_password_email")
-            if st.button("Send OTP"):
+            if st.button("Send OTP", key="send_otp_forgot_password"):
                 if email:
                     if recover_password(email):
                         st.session_state.forgot_password_step = 'enter_otp'
@@ -427,7 +549,7 @@ else:
         if st.session_state.get('forgot_password_step') == 'enter_otp':
             otp = st.text_input("Enter OTP received in email", key="forgot_password_otp")
             new_password = st.text_input("Enter new password", type="password", key="new_password")
-            if st.button("Reset Password"):
+            if st.button("Reset Password", key="reset_password_button"):
                 if otp and new_password:
                     if verify_otp_and_reset_password(st.session_state.otp_email, otp, new_password):
                         st.session_state.forgot_password_step = None
@@ -463,7 +585,7 @@ else:
             else:
                 st.error("Please enter your email to send/resend OTP.")
 
-        if st.button("Register"):
+        if st.button("Register", key="register_button"):
             if new_username and new_password and confirm_password and email and otp_input:
                 if new_password == confirm_password:
                     if otp_input == st.session_state.otp and email == st.session_state.otp_email:
@@ -481,5 +603,14 @@ else:
             else:
                 st.error("Please fill out all fields, including the OTP.")
 
-st.markdown("---")
-st.write("For support, please contact the system administrator.")
+    st.markdown("---")
+    st.write("For support, please contact the system administrator.")
+
+# Add some decorative elements
+st.markdown("""
+<div style="text-align: center; margin-top: 50px;">
+    <h3>🌿 Driving towards a greener future 🌿</h3>
+    <p style="font-style: italic;">Empowering sustainable transportation through advanced EV detection.</p>
+</div>
+""", unsafe_allow_html=True)
+                    

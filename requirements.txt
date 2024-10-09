@@ -7,3 +7,4 @@ email_validator
 pymongo
 streamlit-cookies-manager
 matplotlib
+streamlit-option-menu
