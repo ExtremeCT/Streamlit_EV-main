@@ -6,3 +6,4 @@ bcrypt
 email_validator
 pymongo
 streamlit-cookies-manager
+matplotlib
