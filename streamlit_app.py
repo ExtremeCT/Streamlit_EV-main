@@ -12,6 +12,11 @@ from bson.objectid import ObjectId
 from PIL import Image
 from io import BytesIO
 import matplotlib.pyplot as plt
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import random
+import string
 
 # Set page config at the very beginning
 st.set_page_config(page_title="EV Detection System", layout="wide")
@@ -39,7 +44,13 @@ users_collection = db['users']
 nonev_collection = db['nonev']
 fs = gridfs.GridFS(db)
 
-# Custom CSS for styling
+# Email configuration
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_HOST_USER = 'evdetectionsystem@gmail.com'  # Replace with your email
+EMAIL_HOST_PASSWORD = 'efhu ncmo rgga dksk'  # Replace with your app password
+
+# Custom CSS for styling (unchanged)
 st.markdown("""<style>
     [data-testid="stSidebar"] {
         background-color: #4ade80;
@@ -77,6 +88,14 @@ if 'current_page' not in st.session_state:
     st.session_state.current_page = 'home'
 if 'selected_image' not in st.session_state:
     st.session_state.selected_image = None
+if 'otp' not in st.session_state:
+    st.session_state.otp = None
+if 'otp_email' not in st.session_state:
+    st.session_state.otp_email = None
+if 'registration_step' not in st.session_state:
+    st.session_state.registration_step = 'initial'
+if 'forgot_password_step' not in st.session_state:
+    st.session_state.forgot_password_step = 'initial'
 
 # Hashing password
 def hash_password(password):
@@ -85,6 +104,29 @@ def hash_password(password):
 # Verifying password
 def verify_password(stored_password, provided_password):
     return bcrypt.checkpw(provided_password.encode('utf-8'), stored_password)
+
+# Generate OTP
+def generate_otp():
+    return ''.join(random.choices(string.digits, k=6))
+
+# Send email
+def send_email(to_email, subject, body):
+    msg = MIMEMultipart()
+    msg['From'] = EMAIL_HOST_USER
+    msg['To'] = to_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
+
+    try:
+        server = smtplib.SMTP(EMAIL_HOST, EMAIL_PORT)
+        server.starttls()
+        server.login(EMAIL_HOST_USER, EMAIL_HOST_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        st.error(f"Failed to send email: {str(e)}")
+        return False
 
 # Login user function
 def login_user(username, password):
@@ -100,14 +142,63 @@ def login_user(username, password):
     else:
         st.error("Invalid username or password.")
 
-# Register user function
-def register_user(username, password):
+# Register user function with OTP verification
+def register_user(username, password, email):
     if users_collection.find_one({"username": username}):
         st.error("Username already exists. Please choose a different username.")
+    elif users_collection.find_one({"email": email}):
+        st.error("Email already registered. Please use a different email.")
     else:
+        otp = generate_otp()
+        st.session_state.otp = otp
+        st.session_state.otp_email = email
+        if send_email(email, "OTP for Registration", f"Your OTP is: {otp}"):
+            st.success("OTP sent to your email. Please check and enter below.")
+            return True
+    return False
+
+# Verify OTP and complete registration
+def verify_otp_and_register(username, password, email, entered_otp):
+    if entered_otp == st.session_state.otp and email == st.session_state.otp_email:
         hashed_password = hash_password(password)
-        users_collection.insert_one({"username": username, "password": hashed_password})
+        users_collection.insert_one({"username": username, "password": hashed_password, "email": email})
         st.success("Registration successful! Please log in.")
+        st.session_state.otp = None
+        st.session_state.otp_email = None
+        st.session_state.registration_step = 'initial'
+        return True
+    else:
+        st.error("Invalid OTP. Please try again.")
+        return False
+
+# Password recovery function
+def recover_password(email):
+    user = users_collection.find_one({"email": email})
+    if user:
+        otp = generate_otp()
+        st.session_state.otp = otp
+        st.session_state.otp_email = email
+        if send_email(email, "OTP for Password Recovery", f"Your OTP is: {otp}"):
+            st.success("OTP sent to your email. Please check and enter below.")
+            st.session_state.forgot_password_step = 'verify_otp'
+            return True
+    else:
+        st.error("Email not found. Please check and try again.")
+    return False
+
+# Verify OTP and reset password
+def verify_otp_and_reset_password(email, entered_otp, new_password):
+    if entered_otp == st.session_state.otp and email == st.session_state.otp_email:
+        hashed_password = hash_password(new_password)
+        users_collection.update_one({"email": email}, {"$set": {"password": hashed_password}})
+        st.success("Password reset successful! Please log in with your new password.")
+        st.session_state.otp = None
+        st.session_state.otp_email = None
+        st.session_state.forgot_password_step = 'initial'
+        return True
+    else:
+        st.error("Invalid OTP. Please try again.")
+        return False
 
 # Logout function
 def logout():
@@ -119,7 +210,7 @@ def logout():
     cookies.save()
     st.rerun()
 
-# Function to get NON-EV image counts
+# Function to get NON-EV image counts (unchanged)
 def get_nonev_counts(start_date, end_date):
     pipeline = [
         {
@@ -218,116 +309,94 @@ if st.session_state.logged_in:
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
 
-    else:  # Default to home/dashboard
-        st.title("EV Detection Dashboard")
-        
-        # Date range selector in main content
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            st.subheader("Select Date Range")
-            date_option = st.selectbox(
-                "Choose a date range",
-                ("Custom", "Last 24 Hours", "Last 7 Days", "Last 14 Days", "Last 30 Days", "Last 6 Months")
-            )
-
-            end_date = datetime.now()
-
-            if date_option == "Custom":
-                start_date = st.date_input("Start date", end_date - timedelta(days=30))
-                end_date = st.date_input("End date", end_date)
-                if start_date > end_date:
-                    st.error("Error: End date must be after start date.")
-            else:
-                if date_option == "Last 24 Hours":
-                    start_date = end_date - timedelta(hours=24)
-                elif date_option == "Last 7 Days":
-                    start_date = end_date - timedelta(days=7)
-                elif date_option == "Last 14 Days":
-                    start_date = end_date - timedelta(days=14)
-                elif date_option == "Last 30 Days":
-                    start_date = end_date - timedelta(days=30)
-                else:  # Last 6 Months
-                    start_date = end_date - timedelta(days=180)
-
-        with col2:
-            st.subheader("Notifications")
-            st.info("New EV model detected")
-            st.info("Detection rate increased")
-            st.info("Weekly report available")
-
-        # Get NON-EV image count data
-        df = get_nonev_counts(start_date, end_date)
-
-        # Display metrics
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Total NON-EV Detections", f"{df['value'].sum():,}")
-        with col2:
-            st.metric("Average Daily NON-EV Detections", f"{df['value'].mean():.2f}")
-
-        # NON-EV Detections Trend
-        st.subheader("NON-EV Detections Trend")
-        fig_trend = px.line(df, x='date', y='value', title='NON-EV Detections Over Time')
-        fig_trend.update_traces(line_color="#4ade80")
-        st.plotly_chart(fig_trend, use_container_width=True)
-
-        # Monthly Comparison (if applicable)
-        if (end_date - start_date).days >= 30:
-            st.subheader("Monthly Comparison")
-            df_monthly = df.set_index('date').resample('M').sum().reset_index()
-            fig_bar = px.bar(df_monthly, x='date', y='value', title='Monthly NON-EV Detections')
-            fig_bar.update_traces(marker_color="#4ade80")
-            st.plotly_chart(fig_bar, use_container_width=True)
-
-        # Top NON-EV Events (using actual data)
-        st.subheader("Top NON-EV Events")
-        top_events = nonev_collection.aggregate([
-            {"$group": {"_id": "$event", "count": {"$sum": 1}}},
-            {"$sort": {"count": -1}},
-            {"$limit": 5}
-        ])
-        top_events_df = pd.DataFrame(list(top_events))
-        if not top_events_df.empty:
-            fig_pie = px.pie(top_events_df, values='count', names='_id', title='Top NON-EV Events Detected')
-            st.plotly_chart(fig_pie, use_column_width=True)
-        else:
-            st.write("No NON-EV events data available.")
-
 else:
-    # Login or registration forms
+    # Login, registration, and password recovery forms
     st.title("EV Detection System")
 
-    menu = ["Login", "Register"]
-    choice = st.selectbox("Login or Register", menu)
+    tab1, tab2 = st.tabs(["Login", "Register"])
 
-    if choice == "Login":
+    with tab1:
         st.subheader("Login to your account")
 
-        username = st.text_input("Username", placeholder="Enter your username")
-        password = st.text_input("Password", type="password", placeholder="Enter your password")
+        username = st.text_input("Username", key="login_username")
+        password = st.text_input("Password", type="password", key="login_password")
 
-        if st.button("Login"):
-            if username and password:
-                login_user(username, password)
-            else:
-                st.error("Please enter both username and password.")
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("Login"):
+                if username and password:
+                    login_user(username, password)
+                else:
+                    st.error("Please enter both username and password.")
+        with col2:
+            if st.button("Forgot Password"):
+                st.session_state.forgot_password_step = 'enter_email'
 
-    elif choice == "Register":
+        if st.session_state.forgot_password_step == 'enter_email':
+            email = st.text_input("Enter your email", key="forgot_password_email")
+            if st.button("Send OTP"):
+                if email:
+                    recover_password(email)
+                else:
+                    st.error("Please enter your email.")
+
+        elif st.session_state.forgot_password_step == 'verify_otp':
+            otp = st.text_input("Enter OTP", key="forgot_password_otp")
+            new_password = st.text_input("New Password", type="password", key="new_password")
+            confirm_password = st.text_input("Confirm New Password", type="password", key="confirm_new_password")
+            if st.button("Reset Password"):
+                if new_password == confirm_password:
+                    if verify_otp_and_reset_password(st.session_state.otp_email, otp, new_password):
+                        st.session_state.forgot_password_step = 'initial'
+                else:
+                    st.error("Passwords do not match. Please try again.")
+
+    with tab2:
         st.subheader("Create a new account")
 
-        new_username = st.text_input("New Username", placeholder="Enter your username")
-        new_password = st.text_input("New Password", type="password", placeholder="Enter your password")
-        confirm_password = st.text_input("Confirm Password", type="password", placeholder="Re-enter your password")
+        new_username = st.text_input("New Username", key="reg_username")
+        new_password = st.text_input("New Password", type="password", key="reg_password")
+        confirm_password = st.text_input("Confirm Password", type="password", key="reg_confirm_password")
+        
+        # Use columns to place the email input and Send OTP button side by side
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            email = st.text_input("Email", key="reg_email")
+        with col2:
+            send_otp = st.button("Send OTP")
+
+        # Use columns to place the OTP input and Resend OTP button side by side
+        col3, col4 = st.columns([3, 1])
+        with col3:
+            otp_input = st.text_input("Enter OTP", key="reg_otp")
+        with col4:
+            resend_otp = st.button("Resend OTP")
+
+        if send_otp or resend_otp:
+            if email:
+                if register_user(new_username, new_password, email):
+                    st.session_state.temp_username = new_username
+                    st.session_state.temp_password = new_password
+            else:
+                st.error("Please enter your email to send/resend OTP.")
 
         if st.button("Register"):
-            if new_username and new_password and confirm_password:
+            if new_username and new_password and confirm_password and email and otp_input:
                 if new_password == confirm_password:
-                    register_user(new_username, new_password)
+                    if otp_input == st.session_state.otp and email == st.session_state.otp_email:
+                        if verify_otp_and_register(new_username, new_password, email, otp_input):
+                            st.success("Registration successful! You can now log in.")
+                            # Clear temporary storage
+                            st.session_state.temp_username = None
+                            st.session_state.temp_password = None
+                            st.session_state.otp = None
+                            st.session_state.otp_email = None
+                    else:
+                        st.error("Invalid OTP. Please try again or request a new OTP.")
                 else:
                     st.error("Passwords do not match. Please try again.")
             else:
-                st.error("Please fill out all fields.")
+                st.error("Please fill out all fields, including the OTP.")
 
 st.markdown("---")
 st.write("For support, please contact the system administrator.")
