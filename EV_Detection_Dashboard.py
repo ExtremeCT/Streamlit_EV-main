@@ -98,20 +98,7 @@ st.markdown("""
         margin-right: 0.5rem;
     }
 
-    .logout {
-        background-color: #ff0000 !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 5px !important;
-        padding: 0.5rem 1rem !important;
-        font-weight: bold !important;
-        transition: all 0.3s !important;
-        width: 100% !important;
-        text-align: center !important;
-    }
-    .logout:hover {
-        background-color: #cc0000 !important;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+    #
     }
 </style>
 <div class="decoration-top"></div>
@@ -326,8 +313,9 @@ if st.session_state.logged_in:
         )
         st.session_state.current_page = selected.lower()
 
-        if st.button("🚪 Logout", key="logout", use_container_width=True, help="Click to log out"):
-                logout()
+        st.sidebar.markdown("---")  # Add a separator line
+        if st.sidebar.button("Logout", use_container_width=True):
+            logout()
 
     # Page content
     if st.session_state.current_page == "non-ev detected":
