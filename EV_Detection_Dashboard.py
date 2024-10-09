@@ -484,15 +484,6 @@ if st.session_state.logged_in:
             else:
                 st.error("Current password is incorrect.")
 
-        # Notification settings
-        st.subheader("Notification Settings")
-        email_notifications = st.checkbox("Receive email notifications", value=True)
-        push_notifications = st.checkbox("Receive push notifications", value=True)
-        
-        if st.button("Save Notification Settings"):
-            # Here you would typically save these settings to the user's profile in the database
-            st.success("Notification settings saved!")
-
 else:
     # Login and registration forms
     st.title("🚗 EV Detection System")
