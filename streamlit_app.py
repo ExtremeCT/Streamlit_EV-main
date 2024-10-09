@@ -192,6 +192,7 @@ def recover_password(email):
         st.error("Email not found. Please check and try again.")
     return False
 
+
 # Verify OTP and reset password
 def verify_otp_and_reset_password(email, entered_otp, new_password):
     if entered_otp == st.session_state.otp and email == st.session_state.otp_email:
@@ -414,24 +415,24 @@ else:
             if st.button("Forgot Password"):
                 st.session_state.forgot_password_step = 'enter_email'
 
-        if st.session_state.forgot_password_step == 'enter_email':
+        if st.session_state.get('forgot_password_step') == 'enter_email':
             email = st.text_input("Enter your email", key="forgot_password_email")
             if st.button("Send OTP"):
                 if email:
-                    recover_password(email)
+                    if recover_password(email):
+                        st.session_state.forgot_password_step = 'enter_otp'
                 else:
                     st.error("Please enter your email.")
 
-        elif st.session_state.forgot_password_step == 'verify_otp':
-            otp = st.text_input("Enter OTP", key="forgot_password_otp")
-            new_password = st.text_input("New Password", type="password", key="new_password")
-            confirm_password = st.text_input("Confirm New Password", type="password", key="confirm_new_password")
+        if st.session_state.get('forgot_password_step') == 'enter_otp':
+            otp = st.text_input("Enter OTP received in email", key="forgot_password_otp")
+            new_password = st.text_input("Enter new password", type="password", key="new_password")
             if st.button("Reset Password"):
-                if new_password == confirm_password:
+                if otp and new_password:
                     if verify_otp_and_reset_password(st.session_state.otp_email, otp, new_password):
-                        st.session_state.forgot_password_step = 'initial'
+                        st.session_state.forgot_password_step = None
                 else:
-                    st.error("Passwords do not match. Please try again.")
+                    st.error("Please enter both OTP and new password.")
 
     with tab2:
         st.subheader("Create a new account")
