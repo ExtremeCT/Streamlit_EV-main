@@ -103,23 +103,22 @@ st.markdown("""
     }
 
     /* Logout button specific styles */
-    .stButton > button[data-testid="logout"] {
-        color: #000000;
-        background-color: #0fff54;
-        border: none;
-        border-radius: 5px;
-        padding: 0.5rem 1rem;
-        font-weight: bold;
-        transition: all 0.3s;
-        width: 100%;
-        text-align: left;
-        display: flex;
-        align-items: center;
+    .logout-button {
+        background-color: #ffffff !important;
+        color: black !important;
+        border: none !important;
+        padding: 10px 20px !important;
+        text-align: center !important;
+        text-decoration: none !important;
+        display: inline-block !important;
+        font-size: 16px !important;
+        margin: 4px 2px !important;
+        cursor: pointer !important;
+        border-radius: 4px !important;
+        transition: background-color 0.3s !important;
     }
-
-    .stButton > button[data-testid="logout"]:hover {
-        background-color: #ff1e1e;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    .logout-button:hover {
+        background-color: #fc0101 !important;
     }
 </style>
 <div class="decoration-top"></div>
@@ -343,8 +342,21 @@ if st.session_state.logged_in:
         )
         st.session_state.current_page = selected.lower()
 
-        if st.button("Logout", key="logout", help="Click to log out", on_click=None, args=None, kwargs=None, disabled=False, use_container_width=True):
+        st.markdown('<button class="logout-button" id="logout-button">Logout</button>', unsafe_allow_html=True)
+
+        # Add this JavaScript to handle the logout button click
+        st.markdown("""
+<script>
+    document.getElementById('logout-button').addEventListener('click', function() {
+        window.streamlitApp.setComponentValue('logout-button', true);
+    })
+</script>
+""", unsafe_allow_html=True)
+
+        # Check for logout button click
+        if st.session_state.get('logout-button'):
             logout()
+        st.session_state['logout-button'] = False
 
     # Page content
     if st.session_state.current_page == "non-ev detected":
