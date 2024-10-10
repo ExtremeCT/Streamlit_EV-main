@@ -92,6 +92,9 @@ st.markdown("""
         align-items: center;
         margin-top: 23px;
     }
+    .radio{
+        margin-top: 23px;
+    }
     .stButton > button:hover {
         background-color: #68c3a3;
         color: #f7e8d3;
@@ -361,28 +364,11 @@ if st.session_state.logged_in:
     # Sidebar navigation
     with st.sidebar:
         st.title("🚗 EV Detection")
-        
-        # Use option_menu for a more interactive sidebar
-        selected = option_menu(
-            menu_title=None,
-            options=["Dashboard", "EV Models", "NON-EV Detected", "Messages", "Settings"],
-            icons=['house', 'car-front', 'camera', 'envelope', 'gear'],
-            menu_icon="cast",
-            default_index=0,
-            styles={
-                "container": {"padding": "0", "background-color": "#68c3a3"},  # Teal background
-                "icon": {"color": "#f7e8d3", "font-size": "18px"},  # Beige icon color
-                "nav-link": {
-                    "color": "#f7e8d3",  # Beige text color
-                    "font-size": "16px", 
-                    "text-align": "left", 
-                    "margin": "0px", 
-                    "--hover-color": "#a5d6a7"  # Light green hover color
-                },
-                "nav-link-selected": {"background-color": "#4c8c71", "color": "#f7e8d3"},  # Teal-green background, beige text
-            }
+        selected = st.radio(
+            "Main Menu",
+            ["Dashboard", "NON-EV Detected", "Messages", "Settings"],
+            format_func=lambda x: f"{'🏠' if x == 'Dashboard' else '📷' if x == 'NON-EV Detected' else '✉️' if x == 'Messages' else '⚙️'} {x}"
         )
-        
         st.session_state.current_page = selected.lower()
 
         st.sidebar.markdown("---")  # Add a separator line

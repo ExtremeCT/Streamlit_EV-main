@@ -42,24 +42,24 @@ st.markdown("""
     }
 
     body {
-        color: #333;
-        background-color: #f0f8ff;
+        color: #2a4858;
+        background-color: #f7e8d3;
     }
 
     h1, h2, h3 {
-        color: #2e7d32;
+        color: #4c8c71;
     }
 
     /* Sidebar styles */
     [data-testid="stSidebar"] {
-        background-color: #4ade80;
+        background-color: #68c3a3;
         padding-top: 2rem;
     }
     [data-testid="stSidebar"] .sidebar-content {
-        background-color: #4ade80;
+        background-color: #68c3a3;
     }
     [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
-        color: black;
+        color: #f7e8d3;
         font-size: 1.2rem;
         font-weight: 600;
         padding: 0.5rem 0;
@@ -71,7 +71,7 @@ st.markdown("""
         background-color: transparent !important;
     }
     [data-testid="stSidebar"] .st-co {
-        background-color: rgba(0, 0, 0, 0.1) !important;
+        background-color: rgba(247, 232, 211, 0.1) !important;
     }
     [data-testid="stSidebar"] .st-cu {
         border-radius: 0 !important;
@@ -88,8 +88,8 @@ st.markdown("""
 
     /* Button styles */
     .stButton > button {
-        color: #ffffff;
-        background-color: #4CAF50;
+        color: #f7e8d3;
+        background-color: #4c8c71;
         border: none;
         border-radius: 5px;
         padding: 0.5rem 1rem;
@@ -102,8 +102,8 @@ st.markdown("""
         margin-top: 23px;
     }
     .stButton > button:hover {
-        background-color: #21feea;
-        color: black;
+        background-color: #68c3a3;
+        color: #f7e8d3;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
     .stTextInput > div > div > input {
@@ -118,14 +118,14 @@ st.markdown("""
         padding-top: 1rem;
     }
     .sidebar-content h1 {
-        color: #ffffff;
+        color: #f7e8d3;
         font-size: 1.5rem;
         margin-bottom: 1rem;
         text-align: center;
     }
     .sidebar-content .stButton > button {
         background-color: transparent;
-        color: #ffffff;
+        color: #f7e8d3;
         font-size: 1rem;
         font-weight: normal;
         text-align: left;
@@ -135,7 +135,7 @@ st.markdown("""
         transition: background-color 0.3s;
     }
     .sidebar-content .stButton > button:hover {
-        background-color: rgba(255, 255, 255, 0.1);
+        background-color: rgba(247, 232, 211, 0.2);
     }
     .sidebar-content .stButton > button:focus {
         box-shadow: none;
@@ -285,7 +285,8 @@ if st.session_state.admin_logged_in:
         # Display users in a table
         if users:
             user_data = [{"Username": user.get("username", "N/A"), 
-                          "User Type": user.get("user_type", "N/A")} for user in users]
+                          "User Type": user.get("user_type", "N/A"),
+                          "Email": user.get("email", "N/A")} for user in users]
             st.dataframe(user_data)
 
             # User deletion
