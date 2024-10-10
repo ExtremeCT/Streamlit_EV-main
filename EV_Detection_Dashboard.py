@@ -17,6 +17,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import random
 import string
+from streamlit_option_menu import option_menu
 
 # Set page config at the very beginning
 st.set_page_config(page_title="EV Detection System", layout="wide", page_icon="🚗")
@@ -88,21 +89,58 @@ st.markdown("""
         text-align: left;
         display: flex;
         align-items: center;
+        margin-top: 23px;
     }
     .stButton > button:hover {
         background-color: #21feea;
         color: black;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
+    .stTextInput > div > div > input {
+        height: 48px;
+    }
     .stButton > button > svg {
         margin-right: 0.5rem;
     }
 
-    #
+    /* New styles for the sidebar menu */
+    .sidebar-content {
+        padding-top: 1rem;
     }
-</style>
-<div class="decoration-top"></div>
-<div class="decoration-bottom"></div>
+    .sidebar-content h1 {
+        color: #ffffff;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+    .sidebar-content .stButton > button {
+        background-color: transparent;
+        color: #ffffff;
+        font-size: 1rem;
+        font-weight: normal;
+        text-align: left;
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 0;
+        transition: background-color 0.3s;
+    }
+    .sidebar-content .stButton > button:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+    .sidebar-content .stButton > button:focus {
+        box-shadow: none;
+    }
+    /* Styles for option_menu */
+    .css-1p0m6zy {
+        padding-top: 1rem;
+    }
+    .css-1544g2n {
+        padding: 0;
+    }
+    .css-uc76bn {
+        font-size: 0.9rem;
+    }
+ </style>
 """, unsafe_allow_html=True)
 
 # Initialize cookie manager
@@ -306,11 +344,22 @@ if st.session_state.logged_in:
     # Sidebar navigation
     with st.sidebar:
         st.title("🚗 EV Detection")
-        selected = st.radio(
-            "Main Menu",
-            ["Dashboard", "NON-EV Detected", "Messages", "Settings"],
-            format_func=lambda x: f"{'🏠' if x == 'Dashboard' else '📷' if x == 'NON-EV Detected' else '✉️' if x == 'Messages' else '⚙️'} {x}"
+        
+        # Use option_menu for a more interactive sidebar
+        selected = option_menu(
+            menu_title=None,
+            options=["Dashboard", "EV Models", "NON-EV Detected", "Messages", "Settings"],
+            icons=['house', 'car-front', 'camera', 'envelope', 'gear'],
+            menu_icon="cast",
+            default_index=0,
+            styles={
+                "container": {"padding": "0", "background-color": "#4ade80"},
+                "icon": {"color": "white", "font-size": "18px"}, 
+                "nav-link": {"color": "white", "font-size": "16px", "text-align": "left", "margin":"0px", "--hover-color": "#2678fe"},
+                "nav-link-selected": {"background-color": "#2678fe", "color": "black"},
+            }
         )
+        
         st.session_state.current_page = selected.lower()
 
         st.sidebar.markdown("---")  # Add a separator line
@@ -318,49 +367,7 @@ if st.session_state.logged_in:
             logout()
 
     # Page content
-    if st.session_state.current_page == "non-ev detected":
-        st.title("📸 NON-EV Images Detected")
-        
-        # Fetch all NON-EV image metadata from the database
-        all_images = list(nonev_collection.find().sort('timestamp', -1))
-        
-        # Create a DataFrame for the table
-        df = pd.DataFrame(all_images)
-        df['_id'] = df['_id'].astype(str)
-        df['file_id'] = df['file_id'].astype(str)
-        
-        # Display the table
-        st.dataframe(df.style.set_properties(**{'background-color': 'white', 'color': 'black'}))
-        
-        # Display total number of images
-        st.write(f"Total number of images: {len(all_images)}")
-        
-        # Allow user to select an image to view
-        selected_image_id = st.selectbox("Select an image to view", df['_id'].tolist())
-        
-        if selected_image_id:
-            try:
-                # Find the corresponding document in the collection using _id
-                image_doc = nonev_collection.find_one({'_id': ObjectId(selected_image_id)})
-                if image_doc:
-                    # Use the file_id from the document to retrieve the image
-                    file_id = image_doc['file_id']
-                    image_data = fs.get(ObjectId(file_id)).read()
-                    image = Image.open(BytesIO(image_data))
-                    
-                    # Display the selected image
-                    st.image(image, caption=f"Image ID: {selected_image_id}", use_column_width=True)
-                    
-                    # Display additional information
-                    st.write(f"Timestamp: {image_doc['timestamp']}")
-                    st.write(f"Event: {image_doc['event']}")
-                else:
-                    st.error(f"No metadata found for image with ID: {selected_image_id}")
-            except gridfs.errors.NoFile as e:
-                st.error(f"No file found with ID: {selected_image_id}. Please check the ID and try again.")
-            except Exception as e:
-                st.error(f"An error occurred: {str(e)}")
-    elif st.session_state.current_page == "dashboard":
+    if st.session_state.current_page == "dashboard":
         st.title("📊 EV Detection Dashboard")
         
         # Date range selector in main content
@@ -451,6 +458,139 @@ if st.session_state.logged_in:
         else:
             st.write("No NON-EV events data available.")
 
+    elif st.session_state.current_page == "ev models":
+        st.title("🚙 EV Models Detected")
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.subheader("📅 Select Date Range")
+            date_option = st.selectbox(
+                "Choose a date range",
+                ("Custom", "Last 24 Hours", "Last 7 Days", "Last 14 Days", "Last 30 Days", "Last 6 Months")
+            )
+
+            end_date = datetime.now()
+
+            if date_option == "Custom":
+                start_date = st.date_input("Start date", end_date - timedelta(days=30))
+                end_date = st.date_input("End date", end_date)
+                if start_date > end_date:
+                    st.error("Error: End date must be after start date.")
+            else:
+                if date_option == "Last 24 Hours":
+                    start_date = end_date - timedelta(hours=24)
+                elif date_option == "Last 7 Days":
+                    start_date = end_date - timedelta(days=7)
+                elif date_option == "Last 14 Days":
+                    start_date = end_date - timedelta(days=14)
+                elif date_option == "Last 30 Days":
+                    start_date = end_date - timedelta(days=30)
+                else:  # Last 6 Months
+                    start_date = end_date - timedelta(days=180)
+
+        with col2:
+            st.subheader("📢 Notifications")
+            st.info("🆕 New EV model detected")
+            st.info("📈 Detection rate increased")
+            st.info("📊 Weekly report available")
+
+        # Get NON-EV image count data
+        df = get_nonev_counts(start_date, end_date)
+
+        # Display metrics
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Total EV Detections", f"{df['value'].sum():,}", delta="5%")
+        with col2:
+            st.metric("Average Daily EV Detections", f"{df['value'].mean():.2f}", delta="-2%")
+
+        # NON-EV Detections Trend
+        st.subheader("📉 EV Detections Trend")
+        fig_trend = px.line(df, x='date', y='value', title='NON-EV Detections Over Time')
+        fig_trend.update_traces(line_color="#4ade80")
+        fig_trend.update_layout(
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font_color='#1e3a8a'
+        )
+        st.plotly_chart(fig_trend, use_container_width=True)
+
+        # Monthly Comparison (if applicable)
+        if (end_date - start_date).days >= 30:
+            st.subheader("📊 Monthly Comparison")
+            df_monthly = df.set_index('date').resample('M').sum().reset_index()
+            fig_bar = px.bar(df_monthly, x='date', y='value', title='Monthly NON-EV Detections')
+            fig_bar.update_traces(marker_color="#4ade80")
+            fig_bar.update_layout(
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font_color='#1e3a8a'
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+        # Top NON-EV Events (using actual data)
+        st.subheader("🏆 Top EV Events")
+        top_events = nonev_collection.aggregate([
+            {"$group": {"_id": "$event", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 5}
+        ])
+        top_events_df = pd.DataFrame(list(top_events))
+        if not top_events_df.empty:
+            fig_pie = px.pie(top_events_df, values='count', names='_id', title='Top NON-EV Events Detected')
+            fig_pie.update_layout(
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font_color='#1e3a8a'
+            )
+            st.plotly_chart(fig_pie, use_container_width=True)
+        else:
+            st.write("No EV events data available.")
+
+    elif st.session_state.current_page == "non-ev detected":
+        st.title("📸 NON-EV Images Detected")
+        
+        # Fetch all NON-EV image metadata from the database
+        all_images = list(nonev_collection.find().sort('timestamp', -1))
+        
+        # Create a DataFrame for the table
+        df = pd.DataFrame(all_images)
+        df['_id'] = df['_id'].astype(str)
+        df['file_id'] = df['file_id'].astype(str)
+        
+        # Display the table
+        st.dataframe(df.style.set_properties(**{'background-color': 'white', 'color': 'black'}))
+        
+        # Display total number of images
+        st.write(f"Total number of images: {len(all_images)}")
+        
+        # Allow user to select an image to view
+        selected_image_id = st.selectbox("Select an image to view", df['_id'].tolist())
+        
+        if selected_image_id:
+            try:
+                # Find the corresponding document in the collection using _id
+                image_doc = nonev_collection.find_one({'_id': ObjectId(selected_image_id)})
+                if image_doc:
+                    # Use the file_id from the document to retrieve the image
+                    file_id = image_doc['file_id']
+                    image_data = fs.get(ObjectId(file_id)).read()
+                    image = Image.open(BytesIO(image_data))
+                    
+                    # Display the selected image
+                    st.image(image, caption=f"Image ID: {selected_image_id}", use_column_width=True)
+                    
+                    # Display additional information
+                    st.write(f"Timestamp: {image_doc['timestamp']}")
+                    st.write(f"Event: {image_doc['event']}")
+                else:
+                    st.error(f"No metadata found for image with ID: {selected_image_id}")
+            except gridfs.errors.NoFile as e:
+                st.error(f"No file found with ID: {selected_image_id}. Please check the ID and try again.")
+            except Exception as e:
+                st.error(f"An error occurred: {str(e)}")
+
     elif st.session_state.current_page == "messages":
         st.title("📫 Messages")
         st.write("This feature is coming soon. Stay tuned for updates!")
@@ -533,14 +673,14 @@ else:
         new_password = st.text_input("New Password", type="password", key="reg_password")
         confirm_password = st.text_input("Confirm Password", type="password", key="reg_confirm_password")
         
-        # Use columns to place the email input and Send OTP button side by side
+        # Email and Send OTP button
         col1, col2 = st.columns([3, 1])
         with col1:
             email = st.text_input("Email", key="reg_email")
         with col2:
             send_otp = st.button("Send OTP", key="send_otp_button")
 
-        # Use columns to place the OTP input and Resend OTP button side by side
+        # OTP input and Resend OTP button
         col3, col4 = st.columns([3, 1])
         with col3:
             otp_input = st.text_input("Enter OTP", key="reg_otp")
@@ -555,7 +695,7 @@ else:
             else:
                 st.error("Please enter your email to send/resend OTP.")
 
-        if st.button("Register", key="register_button"):
+        if st.button("Register"):
             if new_username and new_password and confirm_password and email and otp_input:
                 if new_password == confirm_password:
                     if otp_input == st.session_state.otp and email == st.session_state.otp_email:
@@ -573,6 +713,7 @@ else:
             else:
                 st.error("Please fill out all fields, including the OTP.")
 
+
     st.markdown("---")
     st.write("For support, please contact the system administrator.")
 
@@ -583,4 +724,3 @@ st.markdown("""
     <p style="font-style: italic;">Empowering sustainable transportation through advanced EV detection.</p>
 </div>
 """, unsafe_allow_html=True)
-                    
