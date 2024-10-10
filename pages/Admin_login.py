@@ -7,6 +7,8 @@ import gridfs
 from bson import ObjectId
 from PIL import Image
 from io import BytesIO
+import re
+import smtplib
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +27,10 @@ fs = gridfs.GridFS(db)
 # Log debug information
 logger.info(f"Connected to database: {db.name}")
 logger.info(f"Collections in database: {db.list_collection_names()}")
+
+# Regex patterns
+USERNAME_PATTERN = r'^[a-zA-Z0-9]{1,15}$'
+PASSWORD_PATTERN = r'^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};:\'",.<>?]{1,20}$'
 
 # Custom CSS for styling
 st.markdown("""
@@ -93,54 +99,66 @@ st.markdown("""
         text-align: left;
         display: flex;
         align-items: center;
+        margin-top: 23px;
     }
     .stButton > button:hover {
         background-color: #21feea;
         color: black;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
+    .stTextInput > div > div > input {
+        height: 48px;
+    }
     .stButton > button > svg {
         margin-right: 0.5rem;
     }
 
-    .logout-button {
-        background-color: #ff4b4b;
-        color: white;
+    /* New styles for the sidebar menu */
+    .sidebar-content {
+        padding-top: 1rem;
+    }
+    .sidebar-content h1 {
+        color: #ffffff;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+    .sidebar-content .stButton > button {
+        background-color: transparent;
+        color: #ffffff;
+        font-size: 1rem;
+        font-weight: normal;
+        text-align: left;
         padding: 0.5rem 1rem;
-        border-radius: 0.3rem;
         border: none;
-        cursor: pointer;
-        font-weight: bold;
-        transition: background-color 0.3s ease;
+        border-radius: 0;
+        transition: background-color 0.3s;
     }
-    .logout-button:hover {
-        background-color: #ff3333;
+    .sidebar-content .stButton > button:hover {
+        background-color: rgba(255, 255, 255, 0.1);
     }
-
-    /* Input styles */
-    .stTextInput > div > div > input {
-        border: 1px solid #4CAF50;
-        color: #333;
-        background-color: white;
+    .sidebar-content .stButton > button:focus {
+        box-shadow: none;
     }
-    .stTextInput > div > div > input::placeholder {
-        color: rgba(0,0,0,0.6);
+    /* Styles for option_menu */
+    .css-1p0m6zy {
+        padding-top: 1rem;
     }
-
-    /* Table styles */
-    .dataframe {
+    .css-1544g2n {
+        padding: 0;
+    }
+    .css-uc76bn {
         font-size: 0.9rem;
     }
-    .dataframe th {
-        background-color: #4ade80;
-        color: black;
-    }
-    .dataframe td {
-        background-color: white;
-        color: #333;
-    }
-</style>
+ </style>
 """, unsafe_allow_html=True)
+
+# Validation function
+def validate_input(input_value, pattern):
+    return re.match(pattern, input_value) is not None
+
+def show_error(error_message):
+    st.markdown(f'<p style="color: red; font-size: 14px;">{error_message}</p>', unsafe_allow_html=True)
 
 # Hashing password
 def hash_password(password):
@@ -167,9 +185,9 @@ def admin_register(username, password, registration_key):
         st.error("Invalid registration key.")
         return False
 
-    existing_user = users_collection.find_one({"username": username})
+    existing_user = users_collection.find_one({"$or": [{"username": username}]})
     if existing_user:
-        st.error("Username already exists. Please choose a different one.")
+        st.error("Username already exists. Please choose different ones.")
         return False
 
     hashed_password = hash_password(password)
@@ -253,10 +271,10 @@ if st.session_state.admin_logged_in:
             format_func=lambda x: f"{'👥' if x == 'User Management' else '🖼️'} {x}"
         )
 
-        if st.sidebar.button("Logout", key="logout_button", help="Click to log out"):
+        st.sidebar.markdown("---")  # Add a separator line
+        if st.sidebar.button("Logout", use_container_width=True):
             st.session_state.admin_logged_in = False
             st.session_state.admin_username = None
-            st.rerun()
 
     if selected == "User Management":
         st.header("👥 User Management")
@@ -267,8 +285,7 @@ if st.session_state.admin_logged_in:
         # Display users in a table
         if users:
             user_data = [{"Username": user.get("username", "N/A"), 
-                          "User Type": user.get("user_type", "N/A"),
-                          "Email": user.get("email", "N/A")} for user in users]
+                          "User Type": user.get("user_type", "N/A")} for user in users]
             st.dataframe(user_data)
 
             # User deletion
@@ -339,16 +356,28 @@ else:
     with tab2:
         st.header("Admin Registration")
         new_username = st.text_input("New Admin Username", placeholder="Enter new admin username")
+        if new_username and not validate_input(new_username, USERNAME_PATTERN):
+            show_error("Username must be 1-15 characters long and contain only letters and numbers.")
+
         new_password = st.text_input("New Password", type="password", placeholder="Enter new password")
+        if new_password and not validate_input(new_password, PASSWORD_PATTERN):
+            show_error("Password must be 1-20 characters long and can contain letters, numbers, and special characters.")
+
         confirm_password = st.text_input("Confirm Password", type="password", placeholder="Confirm new password")
+        if confirm_password and new_password != confirm_password:
+            show_error("Passwords do not match.")
+
         registration_key = st.text_input("Registration Key", type="password", placeholder="Enter registration key")
 
         if st.button("Register", key="register_button"):
             if new_username and new_password and confirm_password and registration_key:
-                if new_password == confirm_password:
-                    admin_register(new_username, new_password, registration_key)
+                if validate_input(new_username, USERNAME_PATTERN) and validate_input(new_password, PASSWORD_PATTERN):
+                    if new_password == confirm_password:
+                        admin_register(new_username, new_password, registration_key)
+                    else:
+                        st.error("Passwords do not match. Please try again.")
                 else:
-                    st.error("Passwords do not match. Please try again.")
+                    st.error("Please make sure all fields are filled correctly.")
             else:
                 st.error("Please fill out all fields.")
 

@@ -1,4 +1,5 @@
 import streamlit as st
+import re
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -32,24 +33,24 @@ st.markdown("""
     }
 
     body {
-        color: #333;
-        background-color: #f0f8ff;
+        color: #2a4858;
+        background-color: #f7e8d3;
     }
 
     h1, h2, h3 {
-        color: #2e7d32;
+        color: #4c8c71;
     }
 
     /* Sidebar styles */
     [data-testid="stSidebar"] {
-        background-color: #4ade80;
+        background-color: #68c3a3;
         padding-top: 2rem;
     }
     [data-testid="stSidebar"] .sidebar-content {
-        background-color: #4ade80;
+        background-color: #68c3a3;
     }
     [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
-        color: black;
+        color: #f7e8d3;
         font-size: 1.2rem;
         font-weight: 600;
         padding: 0.5rem 0;
@@ -61,7 +62,7 @@ st.markdown("""
         background-color: transparent !important;
     }
     [data-testid="stSidebar"] .st-co {
-        background-color: rgba(0, 0, 0, 0.1) !important;
+        background-color: rgba(247, 232, 211, 0.1) !important;
     }
     [data-testid="stSidebar"] .st-cu {
         border-radius: 0 !important;
@@ -78,8 +79,8 @@ st.markdown("""
 
     /* Button styles */
     .stButton > button {
-        color: #ffffff;
-        background-color: #4CAF50;
+        color: #f7e8d3;
+        background-color: #4c8c71;
         border: none;
         border-radius: 5px;
         padding: 0.5rem 1rem;
@@ -92,8 +93,8 @@ st.markdown("""
         margin-top: 23px;
     }
     .stButton > button:hover {
-        background-color: #21feea;
-        color: black;
+        background-color: #68c3a3;
+        color: #f7e8d3;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
     .stTextInput > div > div > input {
@@ -108,14 +109,14 @@ st.markdown("""
         padding-top: 1rem;
     }
     .sidebar-content h1 {
-        color: #ffffff;
+        color: #f7e8d3;
         font-size: 1.5rem;
         margin-bottom: 1rem;
         text-align: center;
     }
     .sidebar-content .stButton > button {
         background-color: transparent;
-        color: #ffffff;
+        color: #f7e8d3;
         font-size: 1rem;
         font-weight: normal;
         text-align: left;
@@ -125,7 +126,7 @@ st.markdown("""
         transition: background-color 0.3s;
     }
     .sidebar-content .stButton > button:hover {
-        background-color: rgba(255, 255, 255, 0.1);
+        background-color: rgba(247, 232, 211, 0.2);
     }
     .sidebar-content .stButton > button:focus {
         box-shadow: none;
@@ -166,6 +167,13 @@ users_collection = db['users']
 nonev_collection = db['nonev']
 fs = gridfs.GridFS(db)
 
+# Regex patterns
+USERNAME_PATTERN = r'^[a-zA-Z0-9]{1,15}$'
+PASSWORD_PATTERN = r'^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};:\'",.<>?]{1,20}$'
+EMAIL_PATTERN = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+OTP_PATTERN = r'^\d{6}$'
+
+
 # Email configuration
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
@@ -189,6 +197,8 @@ if 'registration_step' not in st.session_state:
     st.session_state.registration_step = 'initial'
 if 'forgot_password_step' not in st.session_state:
     st.session_state.forgot_password_step = 'initial'
+if 'otp_countdown' not in st.session_state:
+    st.session_state.otp_countdown = 0
 
 # Hashing password
 def hash_password(password):
@@ -293,6 +303,13 @@ def verify_otp_and_reset_password(email, entered_otp, new_password):
         st.error("Invalid OTP. Please try again.")
         return False
     
+    # Validation functions
+def validate_input(input_value, pattern):
+    return re.match(pattern, input_value) is not None
+
+def show_error(error_message):
+    st.markdown(f'<p style="color: red; font-size: 14px;">{error_message}</p>', unsafe_allow_html=True)
+    
 # Logout function
 def logout():
     st.session_state.logged_in = False
@@ -353,10 +370,16 @@ if st.session_state.logged_in:
             menu_icon="cast",
             default_index=0,
             styles={
-                "container": {"padding": "0", "background-color": "#4ade80"},
-                "icon": {"color": "white", "font-size": "18px"}, 
-                "nav-link": {"color": "white", "font-size": "16px", "text-align": "left", "margin":"0px", "--hover-color": "#2678fe"},
-                "nav-link-selected": {"background-color": "#2678fe", "color": "black"},
+                "container": {"padding": "0", "background-color": "#68c3a3"},  # Teal background
+                "icon": {"color": "#f7e8d3", "font-size": "18px"},  # Beige icon color
+                "nav-link": {
+                    "color": "#f7e8d3",  # Beige text color
+                    "font-size": "16px", 
+                    "text-align": "left", 
+                    "margin": "0px", 
+                    "--hover-color": "#a5d6a7"  # Light green hover color
+                },
+                "nav-link-selected": {"background-color": "#4c8c71", "color": "#f7e8d3"},  # Teal-green background, beige text
             }
         )
         
@@ -377,8 +400,10 @@ if st.session_state.logged_in:
             st.subheader("📅 Select Date Range")
             date_option = st.selectbox(
                 "Choose a date range",
-                ("Custom", "Last 24 Hours", "Last 7 Days", "Last 14 Days", "Last 30 Days", "Last 6 Months")
-            )
+                ("Custom", "Last 24 Hours", "Last 7 Days", "Last 14 Days", "Last 30 Days", "Last 6 Months"),
+                key="date_range_selector",
+                help="Select a date range for the dashboard data"
+        )
 
             end_date = datetime.now()
 
@@ -411,14 +436,14 @@ if st.session_state.logged_in:
         # Display metrics
         col1, col2 = st.columns(2)
         with col1:
-            st.metric("Total NON-EV Detections", f"{df['value'].sum():,}", delta="5%")
+            st.metric("Total NON-EV Detections", f"{df['value'].sum():,}", delta="5%", delta_color="normal")
         with col2:
             st.metric("Average Daily NON-EV Detections", f"{df['value'].mean():.2f}", delta="-2%")
 
         # NON-EV Detections Trend
         st.subheader("📉 NON-EV Detections Trend")
         fig_trend = px.line(df, x='date', y='value', title='NON-EV Detections Over Time')
-        fig_trend.update_traces(line_color="#4ade80")
+        fig_trend.update_traces(line_color="#68c3a3")
         fig_trend.update_layout(
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
@@ -429,15 +454,28 @@ if st.session_state.logged_in:
         # Monthly Comparison (if applicable)
         if (end_date - start_date).days >= 30:
             st.subheader("📊 Monthly Comparison")
-            df_monthly = df.set_index('date').resample('M').sum().reset_index()
-            fig_bar = px.bar(df_monthly, x='date', y='value', title='Monthly NON-EV Detections')
-            fig_bar.update_traces(marker_color="#4ade80")
-            fig_bar.update_layout(
-                plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)',
-                font_color='#1e3a8a'
-            )
-            st.plotly_chart(fig_bar, use_container_width=True)
+            try:
+                # Ensure 'date' is in datetime format
+                df['date'] = pd.to_datetime(df['date'])
+                
+                # Set 'date' as index and resample
+                df_monthly = df.set_index('date').resample('M')['value'].sum().reset_index()
+                
+                # Create the bar chart
+                fig_bar = px.bar(df_monthly, x='date', y='value', title='Monthly NON-EV Detections')
+                fig_bar.update_traces(marker_color="#4c8c71")
+                fig_bar.update_layout(
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    font_color='#1e3a8a'
+                )
+                st.plotly_chart(fig_bar, use_container_width=True)
+            except Exception as e:
+                st.error(f"An error occurred while creating the monthly comparison: {str(e)}")
+                st.write("Unable to display monthly comparison. Here's a summary of the data:")
+                st.write(df.describe())
+        else:
+            st.info("Select a date range of at least 30 days to view monthly comparison.")
 
         # Top NON-EV Events (using actual data)
         st.subheader("🏆 Top NON-EV Events")
@@ -508,7 +546,7 @@ if st.session_state.logged_in:
         # NON-EV Detections Trend
         st.subheader("📉 EV Detections Trend")
         fig_trend = px.line(df, x='date', y='value', title='NON-EV Detections Over Time')
-        fig_trend.update_traces(line_color="#4ade80")
+        fig_trend.update_traces(line_color="#68c3a3")
         fig_trend.update_layout(
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
@@ -521,7 +559,7 @@ if st.session_state.logged_in:
             st.subheader("📊 Monthly Comparison")
             df_monthly = df.set_index('date').resample('M').sum().reset_index()
             fig_bar = px.bar(df_monthly, x='date', y='value', title='Monthly NON-EV Detections')
-            fig_bar.update_traces(marker_color="#4ade80")
+            fig_bar.update_traces(marker_color="#4c8c71")
             fig_bar.update_layout(
                 plot_bgcolor='rgba(0,0,0,0)',
                 paper_bgcolor='rgba(0,0,0,0)',
@@ -628,80 +666,125 @@ else:
     # Login and registration forms
     st.title("🚗 EV Detection System")
 
+    if 'last_otp_time' not in st.session_state:
+        st.session_state.last_otp_time = {}
+
+    def can_send_otp(email):
+        current_time = datetime.now()
+        if email in st.session_state.last_otp_time:
+            last_sent = st.session_state.last_otp_time[email]
+            if current_time - last_sent < timedelta(minutes=1):
+                return False
+        return True
+
+    def update_otp_time(email):
+        st.session_state.last_otp_time[email] = datetime.now()
+
+    def get_cooldown_time(email):
+        if email in st.session_state.last_otp_time:
+            time_diff = datetime.now() - st.session_state.last_otp_time[email]
+            remaining = timedelta(minutes=1) - time_diff
+            if remaining.total_seconds() > 0:
+                return int(remaining.total_seconds())
+        return 0
+
     tab1, tab2 = st.tabs(["🔐 Login", "📝 Register"])
 
     with tab1:
         st.subheader("Login to your account")
 
         username = st.text_input("Username", key="login_username")
+        if username and not validate_input(username, USERNAME_PATTERN):
+            show_error("Username must be 1-15 characters long and contain only letters and numbers.")
+
         password = st.text_input("Password", type="password", key="login_password")
+        if password and not validate_input(password, PASSWORD_PATTERN):
+            show_error("Password must be 1-20 characters long and can contain letters, numbers, and special characters.")
 
         col1, col2 = st.columns([1, 1])
         with col1:
             if st.button("Login", key="login_button"):
-                if username and password:
+                if username and password and validate_input(username, USERNAME_PATTERN) and validate_input(password, PASSWORD_PATTERN):
                     login_user(username, password)
                 else:
-                    st.error("Please enter both username and password.")
+                    st.error("Please enter both username and password correctly.")
         with col2:
             if st.button("Forgot Password", key="forgot_password_button"):
                 st.session_state.forgot_password_step = 'enter_email'
 
         if st.session_state.get('forgot_password_step') == 'enter_email':
             email = st.text_input("Enter your email", key="forgot_password_email")
-            if st.button("Send OTP", key="send_otp_forgot_password"):
-                if email:
-                    if recover_password(email):
-                        st.session_state.forgot_password_step = 'enter_otp'
-                else:
-                    st.error("Please enter your email.")
+            if email and not validate_input(email, EMAIL_PATTERN):
+                show_error("Please enter a valid email address.")
+            
+                if st.button("Send OTP", key="send_otp_forgot_password"):
+                    if email and validate_input(email, EMAIL_PATTERN) and can_send_otp(email):
+                        if recover_password(email):
+                            update_otp_time(email)
+                            st.session_state.forgot_password_step = 'enter_otp'
+                            st.success("OTP sent successfully!")
+                    else:
+                        st.error("Please enter a valid email.")
 
         if st.session_state.get('forgot_password_step') == 'enter_otp':
             otp = st.text_input("Enter OTP received in email", key="forgot_password_otp")
+            if otp and not validate_input(otp, OTP_PATTERN):
+                show_error("OTP must be 6 digits.")
             new_password = st.text_input("Enter new password", type="password", key="new_password")
+            if new_password and not validate_input(new_password, PASSWORD_PATTERN):
+                show_error("Password must be 1-20 characters long and can contain letters, numbers, and special characters.")
             if st.button("Reset Password", key="reset_password_button"):
-                if otp and new_password:
+                if otp and new_password and validate_input(otp, OTP_PATTERN) and validate_input(new_password, PASSWORD_PATTERN):
                     if verify_otp_and_reset_password(st.session_state.otp_email, otp, new_password):
                         st.session_state.forgot_password_step = None
                 else:
-                    st.error("Please enter both OTP and new password.")
+                    st.error("Please enter both OTP and new password correctly.")
 
     with tab2:
         st.subheader("Create a new account")
 
         new_username = st.text_input("New Username", key="reg_username")
+        if new_username and not validate_input(new_username, USERNAME_PATTERN):
+            show_error("Username must be 1-15 characters long and contain only letters and numbers.")
         new_password = st.text_input("New Password", type="password", key="reg_password")
+        if new_password and not validate_input(new_password, PASSWORD_PATTERN):
+            show_error("Password must be 1-20 characters long and can contain letters, numbers, and special characters.")
         confirm_password = st.text_input("Confirm Password", type="password", key="reg_confirm_password")
+        if confirm_password and new_password != confirm_password:
+            show_error("Passwords do not match.")
         
         # Email and Send OTP button
         col1, col2 = st.columns([3, 1])
         with col1:
             email = st.text_input("Email", key="reg_email")
+            if email and not validate_input(email, EMAIL_PATTERN):
+                show_error("Please enter a valid email address to get OTP.")
         with col2:
             send_otp = st.button("Send OTP", key="send_otp_button")
 
-        # OTP input and Resend OTP button
         col3, col4 = st.columns([3, 1])
         with col3:
             otp_input = st.text_input("Enter OTP", key="reg_otp")
-        with col4:
-            resend_otp = st.button("Resend OTP", key="resend_otp_button")
-
-        if send_otp or resend_otp:
-            if email:
-                if register_user(new_username, new_password, email):
-                    st.session_state.temp_username = new_username
-                    st.session_state.temp_password = new_password
-            else:
-                st.error("Please enter your email to send/resend OTP.")
+            if otp_input and not validate_input(otp_input, OTP_PATTERN):
+                show_error("OTP must be 6 digits.")
+            if send_otp:
+                if email:
+                    if register_user(new_username, new_password, email):
+                        st.session_state.temp_username = new_username
+                        st.session_state.temp_password = new_password
+                else:
+                    st.error("Please enter your email to send.")
 
         if st.button("Register"):
-            if new_username and new_password and confirm_password and email and otp_input:
+            if (new_username and new_password and confirm_password and email and otp_input and
+                validate_input(new_username, USERNAME_PATTERN) and
+                validate_input(new_password, PASSWORD_PATTERN) and
+                validate_input(email, EMAIL_PATTERN) and
+                validate_input(otp_input, OTP_PATTERN)):
                 if new_password == confirm_password:
                     if otp_input == st.session_state.otp and email == st.session_state.otp_email:
                         if verify_otp_and_register(new_username, new_password, email, otp_input):
                             st.success("Registration successful! You can now log in.")
-                            # Clear temporary storage
                             st.session_state.temp_username = None
                             st.session_state.temp_password = None
                             st.session_state.otp = None
@@ -711,8 +794,7 @@ else:
                 else:
                     st.error("Passwords do not match. Please try again.")
             else:
-                st.error("Please fill out all fields, including the OTP.")
-
+                st.error("Please fill out all fields correctly, including the OTP.")
 
     st.markdown("---")
     st.write("For support, please contact the system administrator.")
