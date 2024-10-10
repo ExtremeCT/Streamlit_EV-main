@@ -35,7 +35,7 @@ PASSWORD_PATTERN = r'^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};:\'",.<>?]{1,20}$'
 # Custom CSS for styling
 st.markdown("""
 <style>
-    /* Main page styles */
+    /* Main page style */
     .main .block-container {
         padding-top: 2rem;
         padding-bottom: 2rem;
