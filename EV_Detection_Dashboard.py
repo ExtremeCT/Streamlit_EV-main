@@ -604,7 +604,7 @@ if st.session_state.logged_in:
         st.write(f"Username: {st.session_state.username}")
         
         # Change password form
-        st.subheader("Change Password")
+        st.subheader("Change Passwor")
         current_password = st.text_input("Current Password", type="password")
         new_password = st.text_input("New Password", type="password")
         confirm_new_password = st.text_input("Confirm New Password", type="password")
