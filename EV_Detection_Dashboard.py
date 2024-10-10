@@ -26,7 +26,7 @@ st.set_page_config(page_title="EV Detection System", layout="wide", page_icon="ð
 # Custom CSS for styling
 st.markdown("""
 <style>
-    /* Main page styles */
+    /* Main page styles /
     .main .block-container {
         padding-top: 2rem;
         padding-bottom: 2rem;
